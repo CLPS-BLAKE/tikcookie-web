@@ -17,9 +17,14 @@ TikCookie 的前端仓库，面向 Java 教学成果展示项目，负责浏览�
 - [项目与架构说明](docs/PROJECT_GUIDE.md)
 - [开发、评审与合并流程](docs/WORKFLOW.md)
 - [前后端接口协作约定](docs/API_CONTRACT.md)
+- [接口文档（同步自后端仓库）](docs/接口文档.md)
+- [需求文档（同步自后端仓库）](docs/需求文档.md)
+- [中间件配置（同步自后端仓库）](docs/中间件配置.md)
 - [测试与验收规范](docs/TESTING.md)
 - [团队职责登记](docs/TEAM.md)
 - [安全说明](SECURITY.md)
+
+> `docs/接口文档.md`、`docs/需求文档.md`、`docs/中间件配置.md` 同步自后端仓库 [tikcookie-api](https://github.com/CLPS-BLAKE/tikcookie-api) 的 `833f759`（2026-09-28），内容与后端仓库保持一致，不在本仓库单独修改；后端更新后重新同步并更新此处的提交号。
 
 ## 基本协作规则
 
