@@ -27,7 +27,7 @@ TikCookie 是一个团购业务方向的 Java 教学展示项目。团队共 5 �
 
 - 浏览器通过 Nginx 访问前端页面。
 - `/api` 请求由 Nginx 转发到 Spring Boot。
-- 前端不直接连接 MongoDB、Redis、RabbitMQ 或 Elasticsearch。
+- 前端不直接连接 MySQL、Redis、RabbitMQ 或 Elasticsearch。
 - 图片上传凭证和访问地址由后端控制，前端只使用约定接口。
 
 ## 4. 尚待项目骨架确定的内容
