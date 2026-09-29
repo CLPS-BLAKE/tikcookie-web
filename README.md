@@ -24,7 +24,11 @@ TikCookie 的前端仓库，面向 Java 教学成果展示项目，负责浏览�
 - [团队职责登记](docs/TEAM.md)
 - [安全说明](SECURITY.md)
 
-> `docs/接口文档.md`、`docs/需求文档.md`、`docs/中间件配置.md` 同步自后端仓库 [tikcookie-api](https://github.com/CLPS-BLAKE/tikcookie-api) 的 `833f759`（2026-09-28），内容与后端仓库保持一致，不在本仓库单独修改；后端更新后重新同步并更新此处的提交号。
+> `docs/接口文档.md`、`docs/需求文档.md`、`docs/中间件配置.md` 同步自后端仓库 [tikcookie-api](https://github.com/CLPS-BLAKE/tikcookie-api)，内容与后端仓库保持一致，不在本仓库单独修改；后端更新后重新同步并更新此处的提交号。
+>
+> 同步记录：
+> - `833f759`（2026-09-28）：首次同步，三份文档与后端一致。
+> - 待回填提交号：数据库由 MongoDB 8.0 换成 MySQL 8.0 + MyBatis-Plus，对应后端文档的 v3 版（2026-09-29）。本次 `需求文档.md` 和 `中间件配置.md` 内容有更新，`接口文档.md` 未变。
 
 ## 基本协作规则
 
