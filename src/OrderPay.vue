@@ -187,7 +187,27 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router' // 👈 引入路由
 import { showToast } from 'vant'
+
+const router = useRouter()
+
+// 返回上一页
+const handleBack = () => {
+  router.back()
+}
+
+// 模拟支付成功后跳转
+const handlePay = () => {
+  showToast({
+    type: 'success',
+    message: '支付成功！',
+    onClose: () => {
+      // 👈 支付成功后跳转到交易成功页
+      router.push('/success')
+    }
+  })
+}
 // 订单编号
 const orderId = ref('1113784812650611165')
 
@@ -232,10 +252,10 @@ onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
 
-const handleBack = () => showToast('返回')
+
 const handleService = () => showToast('联系客服')
 const handleCancel = () => showToast('取消订单申请')
-const handlePay = () => showToast({ type: 'success', message: '正在调起支付...' })
+
 </script>
 
 <style scoped>

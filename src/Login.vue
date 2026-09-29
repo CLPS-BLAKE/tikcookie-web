@@ -99,7 +99,7 @@
         @click="handleLogin"
       >
         一键登录
-        
+
       </van-button>
 
       <!-- 协议勾选 -->
@@ -126,7 +126,9 @@
 
 <script setup>
 import { ref } from "vue";
+import { useRouter } from 'vue-router' // 👈 加上这行
 import { showToast } from "vant";
+const router = useRouter() // 👈 创建路由控制器
 
 // 手机号（你原有的）
 const tel = ref("");
@@ -147,7 +149,11 @@ const handleLogin = () => {
   showToast({
     type: "success",
     message: "登录成功！",
-  });
+    onClose: () => {
+      // 👈 登录成功后直接跳到首页
+      router.push('/home')
+    }
+  })
 };
 
 // 切换其他账号

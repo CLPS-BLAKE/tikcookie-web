@@ -5,7 +5,13 @@
     <!-- <Home /> -->
     <!-- <Detail /> -->
     <!-- <OrderPay /> -->
-    <Success />
+    <!-- <Success /> -->
+    <!-- <daishiyonjiemian /> -->
+    <!-- <dianpu /> -->
+    <!-- <gerenzhuzhi /> -->
+    <!-- <pingjiayemian /> -->
+    <!-- <shousuo /> -->
+    <router-view />
   </div>
 </template>
 
@@ -18,6 +24,16 @@
 
 // import OrderPay from './OrderPay.vue'
 
-import Success from './Success.vue'
+// import Success from './Success.vue'
+
+// import daishiyonjiemian from './daishiyonjiemian.vue'
+
+// import dianpu from './dianpu.vue'
+
+// import gerenzhuzhi from './gerenzhuzhi.vue'
+
+// import pingjiayemian from './pingjiayemian.vue'
+
+// import shousuo from './shousuo.vue'
 
 </script>

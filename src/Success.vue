@@ -203,11 +203,29 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+
+const router = useRouter()
+
+// 1. 返回首页（支付成功后返回一般直接回首页，防止重复支付）
+const handleBack = () => {
+  router.push('/home')
+}
+
+// 2. 去使用/核销团购券
+const handleUseCoupon = () => {
+  router.push('/voucher')
+}
+
+// 3. 去评价
+const handleEvaluate = () => {
+  router.push('/comment')
+}
 
 const orderId = ref('1113784124297331165')
 
-const handleBack = () => showToast('返回')
+
 const handleService = () => showToast('联系客服')
 const handleAllStores = () => showToast('查看114家门店')
 const handleNav = () => showToast('导航')
@@ -215,9 +233,9 @@ const handleCall = () => showToast('呼叫门店')
 const handleSnapshot = () => showToast('查看交易快照')
 const handleUsage = () => showToast('使用情况明细')
 const handleMore = () => showToast('更多规则')
-const handleUseCoupon = () => showToast('前往用券专区')
+
 const handleOrderAgain = () => showToast('再次加入购物车')
-const handleEvaluate = () => showToast('前往评价赢积分')
+
 
 const copyOrderNumber = () => {
   navigator.clipboard.writeText(orderId.value)

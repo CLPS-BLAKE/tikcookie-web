@@ -7,7 +7,7 @@
         <span class="triangle-down"></span>
       </div>
 
-      <div class="search-input-wrap">
+      <div class="search-input-wrap" @click="goToSearch">
         <!-- 扫码/镜头小图标 -->
         <van-icon name="scan" class="scan-icon" />
         <input type="text" placeholder="汉堡王" class="search-input" />
@@ -163,7 +163,7 @@
 
     <!-- 6. 商品瀑布流列表（单列大卡片） -->
     <section class="goods-list">
-      <div v-for="item in goodsList" :key="item.id" class="goods-card">
+      <div v-for="item in goodsList" :key="item.id" class="goods-card" @click="goToDetail">
         <!-- 商品大图 -->
         <div class="goods-cover-wrap">
           <img :src="item.image" class="goods-cover" />
@@ -209,7 +209,7 @@
         <van-icon name="shop" size="20" />
         <span>首页</span>
       </div>
-      <div class="capsule-item">
+      <div class="capsule-item" @click="goToUser">
         <van-icon name="notes-o" size="20" />
         <span>订单</span>
       </div>
@@ -219,6 +219,24 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router' // 👈 引入路由
+
+const router = useRouter()
+
+// 1. 去搜索页
+const goToSearch = () => {
+  router.push('/search')
+}
+
+// 2. 去详情页
+const goToDetail = () => {
+  router.push('/detail')
+}
+
+// 3. 去个人中心/订单页
+const goToUser = () => {
+  router.push('/user')
+}
 
 const activeTab = ref(0)
 const tabs = ['推荐', '甜点饮品', '快餐小吃', '正餐美食', '休闲娱乐', '超市便利']

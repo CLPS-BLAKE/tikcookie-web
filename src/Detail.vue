@@ -74,7 +74,7 @@
         <div class="shop-name">德元兰州纯汤牛肉面(广州旗舰店)</div>
         <div class="shop-sub">最近155米 · 近石牌桥地铁站·广正街(...</div>
       </div>
-      <button class="enter-shop-btn">进店</button>
+      <button class="enter-shop-btn" @click="goToShop">进店</button>
     </div>
 
     <!-- 2.2 套餐内容明细卡片 -->
@@ -274,7 +274,7 @@
       </div>
 
       <!-- 底部左右双按钮 -->
-      <div class="action-btn-row">
+      <div class="action-btn-row" @click="goToPay">
         <!-- 左按钮：原价立即购买 -->
         <button class="buy-btn btn-white">
           <div class="btn-price">¥25.9</div>
@@ -282,7 +282,7 @@
         </button>
 
         <!-- 右按钮：抖音支付优惠购买 -->
-        <button class="buy-btn btn-red">
+        <button class="buy-btn btn-red" @click="goToPay">
           <div class="btn-price">¥24.9</div>
           <div class="btn-action">抖音支付购买</div>
         </button>
@@ -294,14 +294,27 @@
 <script setup>
 
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+
+const router = useRouter()
+// 1. 返回上一页
+const handleBack = () => {
+  router.back()
+}
+
+// 2. 进店
+const goToShop = () => {
+  router.push('/shop')
+}
+
+// 3. 去支付结算（无论点原价买还是优惠买，都去收银台）
+const goToPay = () => {
+  router.push('/pay')
+}
 
 // 控制“购买须知”是否展开（默认收起，露出部分）
 const isExpanded = ref(false)
-
-const handleBack = () => {
-  showToast('返回上一页')
-}
 
 </script>
 
