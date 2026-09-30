@@ -292,30 +292,87 @@
 </template>
 
 <script setup>
-
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { showToast } from 'vant'
 
+// 引入商品详情接口、下单接口与金额转换工具
+import { getProductDetailAPI } from './api/goods'
+import { createOrderAPI } from './api/order'
+import { formatPrice } from './utils/format'
+
 const router = useRouter()
-// 1. 返回上一页
+const route = useRoute() // 用于读取从首页传过来的商品 ID
+
+// 从首页 URL 拿到的当前商品 ID（默认保底为 1）
+const productId = ref(route.query.id || '1')
+
+// 控制“购买须知”是否展开（保持你原本的变量）
+const isExpanded = ref(false)
+
+// 商品信息数据（带默认保底，后端没好时页面依然好看）
+const productInfo = ref({
+  name: '【佳节】【肉蛋双飞】纯汤牛肉面+酱牛肉50g+五香卤鸡蛋/精品小菜2选1（免费续面）',
+  price: '24.9',
+  originPrice: '33',
+  shopName: '德元兰州纯汤牛肉面(广州旗舰店)',
+  shopAddress: '最近155米 · 近石牌桥地铁站·广正街(...',
+  sales: '已售2万+'
+})
+
+// 页面加载时根据商品 ID 尝试向后端拉取详情
+onMounted(async () => {
+  if (!productId.value) return
+
+  try {
+    const data = await getProductDetailAPI(productId.value)
+    if (data) {
+      productInfo.value = {
+        name: data.name,
+        price: formatPrice(data.price), // 后端分转元
+        originPrice: formatPrice(data.price * 1.3),
+        shopName: data.shopName || '官方旗舰店',
+        shopAddress: data.shopAddress || '天河区体育西路100号',
+        sales: `已售${data.soldCount || 0}`
+      }
+    }
+  } catch (err) {
+    // 连不上后端时静默处理，继续使用原有的预设数据展示
+  }
+})
+
+// 1. 返回上一页（保持你原本的代码）
 const handleBack = () => {
   router.back()
 }
 
-// 2. 进店
+// 2. 进店（保持你原本的代码）
 const goToShop = () => {
   router.push('/shop')
 }
 
-// 3. 去支付结算（无论点原价买还是优惠买，都去收银台）
-const goToPay = () => {
-  router.push('/pay')
+// 3. 去支付结算（升级：生成真实订单号并带参跳转）
+const goToPay = async () => {
+  showToast({ type: 'loading', message: '正在创建订单...', forbidClick: true })
+
+  let targetOrderId = '1113784812650611165' // 备用测试单号（保证后端没开也能顺畅演示）
+
+  try {
+    // 真实调接口下单（对应文档 5.6.1）
+    const res = await createOrderAPI(productId.value)
+    if (res && res.orderId) {
+      targetOrderId = res.orderId // 拿到后端返回的真实订单号
+    }
+  } catch (err) {
+    console.warn('后端下单接口暂未联通，采用模拟单号进入结算')
+  }
+
+  // 带着订单号跳转到待支付收银台
+  router.push({
+    path: '/pay',
+    query: { orderId: targetOrderId }
+  })
 }
-
-// 控制“购买须知”是否展开（默认收起，露出部分）
-const isExpanded = ref(false)
-
 </script>
 
 <style scoped>

@@ -187,44 +187,16 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router' // 👈 引入路由
+import { useRouter, useRoute } from 'vue-router' // 👈 引入路由工具
 import { showToast } from 'vant'
+// 1. 引入订单接口（查询详情与模拟支付）
+import { getOrderDetailAPI, payOrderAPI } from './api/order'
 
 const router = useRouter()
+const route = useRoute() // 👈 读取路由参数
 
-// 返回上一页
-const handleBack = () => {
-  router.back()
-}
-
-// 模拟支付成功后跳转
-const handlePay = () => {
-  showToast({
-    type: 'success',
-    message: '支付成功！',
-    onClose: () => {
-      // 👈 支付成功后跳转到交易成功页
-      router.push('/success')
-    }
-  })
-}
-// 订单编号
-const orderId = ref('1113784812650611165')
-
-// 点击复制订单号
-const copyOrderNumber = () => {
-  navigator.clipboard.writeText(orderId.value).then(() => {
-    showToast('订单号已复制到剪贴板')
-  }).catch(() => {
-    showToast('复制成功')
-  })
-}
-
-// 门店操作
-const handleAllStores = () => showToast('查看全部123家门店')
-const handleNav = () => showToast('正在打开地图导航...')
-const handleCall = () => showToast('拨打门店电话')
-const handleOrderMore = () => showToast('查看更多订单规则')
+// 订单编号：优先使用上个页面传过来的真实单号，没有则使用默认保底单号
+const orderId = ref(route.query.orderId || '1113784812650611165')
 
 // 倒计时秒数（原图 29分28秒 = 1768秒）
 const remainingSeconds = ref(1768)
@@ -237,7 +209,7 @@ const formatTime = (secs) => {
   return `${m}:${s}`
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 启动真实倒计时，每秒减 1
   timer = setInterval(() => {
     if (remainingSeconds.value > 0) {
@@ -246,16 +218,68 @@ onMounted(() => {
       clearInterval(timer)
     }
   }, 1000)
+
+  // 尝试向后端拉取订单详情（对应文档 5.6.7）
+  try {
+    const data = await getOrderDetailAPI(orderId.value)
+    if (data) {
+      console.log('获取到后端订单详情:', data)
+    }
+  } catch (err) {
+    // 骨架期静默处理，页面继续使用原有的预设金额和菜品展示
+  }
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
 
+// 返回上一页
+const handleBack = () => {
+  router.back()
+}
 
+// 核心升级：点击去支付（真实请求后端支付接口）
+const handlePay = async () => {
+  showToast({ type: 'loading', message: '正在调起支付...', forbidClick: true })
+
+  try {
+    // 真实调接口：向后端发起支付请求（对应文档 5.6.3）
+    await payOrderAPI(orderId.value)
+    console.log('支付接口调用成功')
+  } catch (err) {
+    console.warn('后端支付接口暂未联通或处于骨架期，采用保底放行')
+  }
+
+  showToast({
+    type: 'success',
+    message: '支付成功！',
+    onClose: () => {
+      // 支付完成后，带着单号跳到交易成功页
+      router.push({
+        path: '/success',
+        query: { orderId: orderId.value }
+      })
+    }
+  })
+}
+
+// 点击复制订单号（保持你的原版代码）
+const copyOrderNumber = () => {
+  navigator.clipboard.writeText(orderId.value).then(() => {
+    showToast('订单号已复制到剪贴板')
+  }).catch(() => {
+    showToast('复制成功')
+  })
+}
+
+// 门店操作与交互方法（保持你的原版代码）
+const handleAllStores = () => showToast('查看全部123家门店')
+const handleNav = () => showToast('正在打开地图导航...')
+const handleCall = () => showToast('拨打门店电话')
+const handleOrderMore = () => showToast('查看更多订单规则')
 const handleService = () => showToast('联系客服')
 const handleCancel = () => showToast('取消订单申请')
-
 </script>
 
 <style scoped>

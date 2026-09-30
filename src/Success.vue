@@ -15,22 +15,29 @@
     <!-- 2. 商品卡片 -->
     <section class="card product-card">
       <div class="goods-row">
-        <img 
-          src="https://img01.yzcdn.cn/vant/apple-1.jpg" 
-          class="goods-thumb" 
+        <img
+          src="https://img01.yzcdn.cn/vant/apple-1.jpg"
+          class="goods-thumb"
         />
         <div class="goods-info">
           <div class="title-price-line">
-            <h3 class="goods-title">【解辣解腻】原味螺蛳粉/大片腐竹螺蛳粉（2选1）+特色糖水</h3>
+            <h3 class="goods-title">
+              【解辣解腻】原味螺蛳粉/大片腐竹螺蛳粉（2选1）+特色糖水
+            </h3>
             <div class="origin-col">
               <span class="origin-price">¥22</span>
               <span class="qty">x1</span>
             </div>
           </div>
-          <div class="final-price-row">
-            <span class="yen">¥</span>
-            <span class="price-num">15.1</span>
-            <van-icon name="arrow" size="12" class="arrow-icon" />
+          <div class="final-price-action-row">
+            <div class="price-wrap">
+              <span class="yen">¥</span>
+              <span class="price-num">15.1</span>
+            </div>
+            <!-- 放到 ¥15.1 后面的“去使用”小按钮 -->
+            <button class="goto-use-btn" @click="handleUseCoupon">
+              去使用
+            </button>
           </div>
         </div>
       </div>
@@ -47,9 +54,9 @@
       </div>
 
       <div class="store-item-row">
-        <img 
-          src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" 
-          class="store-badge-img" 
+        <img
+          src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg"
+          class="store-badge-img"
         />
         <div class="store-main-text">
           <div class="store-title-text">周成芝螺蛳粉(财富广场...</div>
@@ -85,7 +92,7 @@
         </div>
       </div>
 
-      <div class="combo-group" style="margin-top: 14px;">
+      <div class="combo-group" style="margin-top: 14px">
         <h4 class="group-title">糖水 2选1</h4>
         <div class="combo-row">
           <span class="dish-name">• 木薯糖水</span>
@@ -101,7 +108,7 @@
     <!-- 5. 订单信息卡片（交易快照、使用情况） -->
     <section class="card order-info-card">
       <h4 class="card-subtitle">订单信息</h4>
-      
+
       <div class="meta-item-row" @click="handleSnapshot">
         <span class="meta-label">交易快照</span>
         <div class="meta-val-right">
@@ -135,7 +142,12 @@
     <!-- 6. 底部限时优惠券横幅（像素级还原原图） -->
     <section class="card coupon-recall-card">
       <div class="recall-header">
-        <span>您还有4张共<span class="red-bold">20</span>元券待使用，仅剩<span class="red-bold timer">14:03:22</span></span>
+        <span
+          >您还有4张共<span class="red-bold">20</span>元券待使用，仅剩<span
+            class="red-bold timer"
+            >14:03:22</span
+          ></span
+        >
       </div>
 
       <!-- 横向滑动优惠券列表 -->
@@ -202,45 +214,47 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { showToast } from "vant";
 
-const router = useRouter()
+const router = useRouter();
 
 // 1. 返回首页（支付成功后返回一般直接回首页，防止重复支付）
 const handleBack = () => {
-  router.push('/home')
-}
+  router.push("/home");
+};
 
 // 2. 去使用/核销团购券
+// 在 Success.vue 里的 handleUseCoupon 加上传参：
 const handleUseCoupon = () => {
-  router.push('/voucher')
-}
+  router.push({
+    path: "/voucher",
+    query: { orderId: orderId.value }, // 👈 把单号传过去
+  });
+};
 
 // 3. 去评价
 const handleEvaluate = () => {
-  router.push('/comment')
-}
+  router.push("/comment");
+};
 
-const orderId = ref('1113784124297331165')
+const orderId = ref("1113784124297331165");
 
+const handleService = () => showToast("联系客服");
+const handleAllStores = () => showToast("查看114家门店");
+const handleNav = () => showToast("导航");
+const handleCall = () => showToast("呼叫门店");
+const handleSnapshot = () => showToast("查看交易快照");
+const handleUsage = () => showToast("使用情况明细");
+const handleMore = () => showToast("更多规则");
 
-const handleService = () => showToast('联系客服')
-const handleAllStores = () => showToast('查看114家门店')
-const handleNav = () => showToast('导航')
-const handleCall = () => showToast('呼叫门店')
-const handleSnapshot = () => showToast('查看交易快照')
-const handleUsage = () => showToast('使用情况明细')
-const handleMore = () => showToast('更多规则')
-
-const handleOrderAgain = () => showToast('再次加入购物车')
-
+const handleOrderAgain = () => showToast("再次加入购物车");
 
 const copyOrderNumber = () => {
-  navigator.clipboard.writeText(orderId.value)
-  showToast('订单号已复制')
-}
+  navigator.clipboard.writeText(orderId.value);
+  showToast("订单号已复制");
+};
 </script>
 
 <style scoped>
@@ -547,7 +561,7 @@ const copyOrderNumber = () => {
 .coupon-left-arc {
   background-color: #ffffff;
   /* 关键：右边带有 16px 圆弧凸起 */
-  border-radius: 0 16px 16px 0; 
+  border-radius: 0 16px 16px 0;
   padding: 0 12px;
   display: flex;
   flex-direction: column;
@@ -653,5 +667,30 @@ const copyOrderNumber = () => {
   background: linear-gradient(135deg, #ff2346, #ff385c);
   border: none;
   color: #ffffff;
+}
+/* 让金额与“去使用”按钮在右下角并排对齐 */
+.final-price-action-row {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.price-wrap {
+  display: flex;
+  align-items: baseline;
+  color: #111;
+}
+/* 放在 ¥15.1 后面的小胶囊按钮 */
+.goto-use-btn {
+  background: linear-gradient(135deg, #ff2346, #ff4365);
+  color: #ffffff;
+  border: none;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(255, 35, 70, 0.25);
 }
 </style>

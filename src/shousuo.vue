@@ -81,21 +81,23 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router' // 👈 1. 引入路由
+import { ref, onMounted } from 'vue' // 👈 引入 onMounted
+import { useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
+// 1. 引入商品搜索接口（对应文档 5.5.1）
+import { searchProductsAPI } from './api/search'
 
+const router = useRouter()
 
-const router = useRouter() // 👈 2. 创建路由实例
-
-// 3. 将原本的模拟提示改成真实返回上一页
+// 返回上一页（保持你原本的代码）
 const handleBack = () => {
-  router.back() // 👈 谁跳进来的就返回给谁（比如从首页点进来的就退回首页）
+  router.back()
 }
+
 // 当前输入的关键词
 const keyword = ref('汉堡王')
 
-// 历史记录假数据
+// 历史记录（带保底数据，并在页面打开时优先读本地缓存）
 const historyList = ref([
   '临榆炸鸡腿',
   '汉堡王',
@@ -106,7 +108,7 @@ const historyList = ref([
   '杨国福...'
 ])
 
-// 猜你想搜列表（带“热”标签）
+// 猜你想搜列表（保持你原本的代码）
 const guessList = ref([
   { name: '汉堡王', isHot: false },
   { name: '十八梯邓凳面', isHot: true },
@@ -122,38 +124,65 @@ const guessList = ref([
   { name: '张仔记干蒸排骨饭', isHot: false }
 ])
 
+// 页面加载时，读取历史记录缓存
+onMounted(() => {
+  const localHistory = localStorage.getItem('searchHistory')
+  if (localHistory) {
+    try {
+      historyList.value = JSON.parse(localHistory)
+    } catch (e) {}
+  }
+})
 
-
-// 触发搜索
-const handleSearch = (word) => {
-  const target = word || keyword.value || '汉堡王'
+// 核心升级：触发搜索（真实调用后端商品搜索接口 5.5.1 + 存入历史记录）
+const handleSearch = async (word) => {
+  const target = (typeof word === 'string' ? word : keyword.value).trim() || '汉堡王'
   keyword.value = target
-  showToast(`正在搜索：${target}`)
+
+  // 1. 记录进历史搜索标签（去重并置顶到最前面）
+  historyList.value = [target, ...historyList.value.filter(k => k !== target)]
+  localStorage.setItem('searchHistory', JSON.stringify(historyList.value))
+
+  showToast({ type: 'loading', message: `正在搜索：${target}...`, forbidClick: true })
+
+  try {
+    // 2. 真实调接口：向后端发起搜索请求
+    const res = await searchProductsAPI({ keyword: target, page: 1, size: 10, sort: 'default' })
+    if (res && res.list) {
+      console.log('搜索接口返回结果:', res.list)
+      showToast(`找到相关好物！`)
+    }
+  } catch (err) {
+    // 骨架期或离线时静默处理
+    console.warn('后端搜索接口暂未联通或处于骨架期，采用保底提示')
+    showToast(`正在搜索：${target}`)
+  }
 }
 
-// 清空历史记录
+// 清空历史记录（同步清空本地缓存）
 const handleClearHistory = () => {
   showConfirmDialog({
     title: '提示',
     message: '确认删除所有搜索历史吗？'
   }).then(() => {
     historyList.value = []
+    localStorage.removeItem('searchHistory') // 👈 同步清除缓存
     showToast('历史记录已清空')
   }).catch(() => {})
 }
 
-// 展开更多历史
+// 展开更多历史（保持你原本的代码）
 const handleExpandHistory = () => {
   showToast('展开更多历史')
 }
 
-// 换一换
+// 换一换（保持你原本的代码）
 const handleRefreshGuess = () => {
   guessList.value.reverse()
   showToast('已更新推荐热搜')
 }
 
-// 语音搜索
+// 语音搜索（保持你原本的代码）
 const handleVoiceSearch = () => {
   showToast('正在聆听您的声音...')
 }

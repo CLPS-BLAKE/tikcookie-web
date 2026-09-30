@@ -1,22 +1,25 @@
 <template>
   <div class="user-center-container">
     <!-- 1. 顶部用户头像与昵称 -->
+    <!-- 1. 顶部用户头像与昵称（动态绑定后端/缓存数据） -->
     <header class="user-header">
       <div class="user-info-left">
-        <img 
-          src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" 
-          class="user-avatar" 
+        <!-- 动态绑定头像（有真头像用真头像，没有就用你原本的这只猫） -->
+        <img
+          :src="userInfo.avatarUrl || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'"
+          class="user-avatar"
         />
-        <span class="user-nickname">不爱刷抖音</span>
+        <!-- 动态绑定昵称（有真昵称显示真昵称，没有就显示不爱刷抖音） -->
+        <span class="user-nickname">{{ userInfo.nickname || '不爱刷抖音' }}</span>
       </div>
 
       <div class="user-header-actions">
-        <!-- 客服（带小红点） -->
+        <!-- 客服（带小红点，保持你的原代码） -->
         <div class="header-icon-wrap" @click="handleService">
           <van-icon name="service-o" size="22" color="#222" />
           <span class="red-dot"></span>
         </div>
-        <!-- 设置 -->
+        <!-- 设置（保持你的原代码） -->
         <div class="header-icon-wrap" @click="handleSetting">
           <van-icon name="setting-o" size="22" color="#222" />
         </div>
@@ -36,15 +39,15 @@
       <div class="asset-item" @click="handleNavAsset('通知')">
         <div class="icon-relative">
           <!-- 采用纯净空心线框小铃铛（带小吊钟与线条质感） -->
-          <svg 
-            class="asset-icon outline-bell" 
-            viewBox="0 0 24 24" 
-            width="26" 
-            height="26" 
-            fill="none" 
-            stroke="#222" 
-            stroke-width="1.8" 
-            stroke-linecap="round" 
+          <svg
+            class="asset-icon outline-bell"
+            viewBox="0 0 24 24"
+            width="26"
+            height="26"
+            fill="none"
+            stroke="#222"
+            stroke-width="1.8"
+            stroke-linecap="round"
             stroke-linejoin="round"
           >
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -64,8 +67,8 @@
     <!-- 3. 订单分类 Tab 栏（带待使用角标与搜索） -->
     <section class="order-tabs-wrapper">
       <div class="tabs-scroll-area">
-        <div 
-          v-for="(tab, index) in orderTabs" 
+        <div
+          v-for="(tab, index) in orderTabs"
           :key="index"
           :class="['tab-btn', { active: currentTab === index }]"
           @click="currentTab = index"
@@ -95,15 +98,17 @@
             <span class="shop-name">瑞幸咖啡 (石牌桥店)</span>
             <van-icon name="arrow" size="12" color="#666" />
           </div>
-          <span class="order-status-tag">待使用</span>
+          <span class="order-status-tag">
+            {{ currentTab === 4 ? "待评价" : "待使用" }}
+          </span>
         </div>
         <div class="shop-distance">距你 43m</div>
 
         <!-- 商品内容 -->
         <div class="order-goods-flex">
-          <img 
-            src="https://img01.yzcdn.cn/vant/apple-1.jpg" 
-            class="order-goods-cover" 
+          <img
+            src="https://img01.yzcdn.cn/vant/apple-1.jpg"
+            class="order-goods-cover"
           />
           <div class="order-goods-right">
             <div class="goods-title-price">
@@ -123,8 +128,22 @@
 
         <!-- 底部操作按钮 -->
         <div class="order-card-actions">
-          <button class="card-btn btn-again" @click="handleAgain">再来一单</button>
-          <button class="card-btn btn-use" @click="handleUse">去使用</button>
+          <button class="card-btn btn-again" @click="handleAgain">
+            再来一单
+          </button>
+
+          <!-- 如果是待评价 Tab，显示“去评价”；否则显示“去使用” -->
+          <button
+            v-if="currentTab === 4"
+            class="card-btn btn-use"
+            style="background: #ff2346; color: #fff"
+            @click="goToComment"
+          >
+            去评价
+          </button>
+          <button v-else class="card-btn btn-use" @click="handleUse">
+            去使用
+          </button>
         </div>
       </div>
     </section>
@@ -160,46 +179,98 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { showToast } from 'vant'
-
+// 引入用户接口与订单列表接口
+import { getUserInfoAPI } from './api/user'
+import { getMyOrdersAPI } from './api/order'
 
 const router = useRouter()
+const route = useRoute()
 
-// 点击订单上的“去使用”
-const handleUse = () => {
-  router.push('/voucher')
-}
+// 核心：如果有从上个页面传来的 ?tab=4 参数，就选中待评价(4)，否则默认选中待使用(2)
+const currentTab = ref(route.query.tab !== undefined ? Number(route.query.tab) : 2)
 
-// 点击底部悬浮胶囊切回首页
-const handleGoHome = () => {
-  router.push('/home')
-}
-// 当前选中的订单分类
-const currentTab = ref(2) // 默认选第 2 项（待使用）
+// 用户资料（优先读本地缓存，再向后端请求最新数据）
+const userInfo = ref({
+  nickname: '不爱刷抖音',
+  avatarUrl: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+})
 
 // Tab 列表
 const orderTabs = ref([
-  { name: '全部' },
-  { name: '待支付' },
-  { name: '待使用', badge: '1' },
-  { name: '待收货' },
-  { name: '待评价' }
+  { name: '全部', status: '' },
+  { name: '待支付', status: 'UNPAID' },
+  { name: '待使用', status: 'UNUSED', badge: route.query.tab == 4 ? '' : '1' },
+  { name: '待收货', status: 'DELIVER' },
+  { name: '待评价', status: 'USED', badge: route.query.tab == 4 ? '1' : '' }
 ])
 
+// 页面加载时的处理
+onMounted(async () => {
+  // 1. 尝试从本地缓存读取登录的用户资料
+  const localUser = localStorage.getItem('userInfo')
+  if (localUser) {
+    try {
+      const parsed = JSON.parse(localUser)
+      if (parsed.nickname) userInfo.value.nickname = parsed.nickname
+      if (parsed.avatarUrl) userInfo.value.avatarUrl = parsed.avatarUrl
+    } catch (e) {}
+  }
+
+  // 2. 真实调接口：向后端查询最新的本人资料（文档 5.1.4）
+  try {
+    const data = await getUserInfoAPI()
+    if (data && data.nickname) {
+      userInfo.value.nickname = data.nickname
+      if (data.avatarUrl) userInfo.value.avatarUrl = data.avatarUrl
+    }
+  } catch (err) {
+    // 骨架期或离线时静默处理
+  }
+
+  // 3. 拉取订单列表
+  fetchOrders()
+})
+
+// 监听 Tab 切换，切换时重新发请求查询对应分类的订单
+watch(currentTab, () => {
+  fetchOrders()
+})
+
+// 查询订单列表方法（文档 5.6.6）
+const fetchOrders = async () => {
+  const currentStatus = orderTabs.value[currentTab.value]?.status
+  try {
+    const res = await getMyOrdersAPI({ page: 1, size: 10, status: currentStatus })
+    if (res && res.list && res.list.length > 0) {
+      console.log('获取到后端真实订单列表:', res.list)
+    }
+  } catch (err) {
+    // 骨架期静默处理，页面继续使用原有的卡片展示
+  }
+}
+
+// 页面跳转逻辑
+const goToComment = () => {
+  router.push('/comment')
+}
+const handleUse = () => {
+  router.push('/voucher')
+}
+const handleGoHome = () => {
+  router.push('/home')
+}
+
+// 其它交互
 const handleService = () => showToast('联系客服')
 const handleSetting = () => showToast('进入设置')
 const handleNavAsset = (name) => showToast(`进入：${name}`)
 const handleSearchOrder = () => showToast('搜索全部历史订单')
 const handleAgain = () => showToast('已为您再次加入订单')
-
 const handleAIBanner = () => showToast('唤起 AI 智能省钱助手')
-const handleAllOrders = () => {
-  currentTab.value = 0
-  showToast('已切换至全部订单')
-}
-
+const handleAllOrders = () => { currentTab.value = 0 }
 </script>
 
 <style scoped>
@@ -291,24 +362,27 @@ const handleAllOrders = () => {
   padding: 12px 14px 10px 14px;
   border-top: 1px solid #f5f5f5;
 }
+/* 1. 滑动区域：核心修复！加上 padding-top 抬高天花板，防止切头 */
 .tabs-scroll-area {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 22px;
   overflow-x: auto;
+  padding-top: 10px;    /* 👈 关键点：给红球留出 10px 的头顶空间，不再被裁切！ */
+  padding-bottom: 6px;
 }
 .tabs-scroll-area::-webkit-scrollbar {
   display: none;
 }
+/* 2. 每个 Tab 按钮 */
 .tab-btn {
   position: relative;
-  font-size: 14.5px;
+  font-size: 15px;
   color: #555;
   cursor: pointer;
   white-space: nowrap;
-  padding-bottom: 6px;
-  display: flex;
+  margin-right: 22px;   /* 留足右侧空隙，防止红球挡住后面的竖线 */
+  display: inline-flex;
   align-items: center;
 }
 .tab-btn.active {
@@ -316,20 +390,25 @@ const handleAllOrders = () => {
   font-weight: bold;
   color: #111;
 }
+
+/* 3. 正圆小红点：完整展示，无任何裁切 */
 .tab-badge {
   position: absolute;
-  top: -6px;
-  right: -10px;
-  background-color: #ff2346;
-  color: #fff;
-  font-size: 10px;
-  font-weight: bold;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
+  top: -5px;           /* 挂在字头上方，现在有足够空间，绝不会被切 */
+  right: -13px;        /* 挂在字右侧 */
+  width: 16px;         /* 锁定宽高相等 */
+  height: 16px;
+  background-color: #ff2346; /* 原图纯正平铺大红 */
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 50%;  /* 完美正圆形 */
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
+  padding: 0;
+  z-index: 10;
 }
 .tab-active-line {
   position: absolute;

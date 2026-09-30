@@ -203,20 +203,41 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { showToast } from 'vant'
 
+// 1. 引入店铺接口、收藏接口与金额转换工具
+import { 
+  getShopDetailAPI, 
+  getShopProductsAPI, 
+  addFavoriteShopAPI, 
+  removeFavoriteShopAPI 
+} from './api/shop'
+import { formatPrice } from './utils/format'
+
 const router = useRouter()
+const route = useRoute()
+
+// 当前店铺 ID（优先读取 URL 传过来的 shopId，默认保底为文档示例 ID）
+const shopId = ref(route.query.shopId || route.query.id || '101486601357656065')
 
 // 状态
 const isFollowed = ref(false)
 const isFav = ref(false)
 
-// 团购商品数据
+// 店铺信息（带保底数据，后端没好时页面依然好看完整）
+const shopInfo = ref({
+  name: '周成芝螺蛳粉(财富广场店)',
+  address: '天河区体育东路118号103-1铺',
+  businessHours: '10:00-22:00',
+  phone: '020-12345678'
+})
+
+// 团购商品数据（保持你原版的 4 个好看商品作为保底）
 const productList = ref([
   {
-    id: 1,
+    id: '1',
     image: 'https://img01.yzcdn.cn/vant/apple-1.jpg',
     boughtTag: '最近买过',
     title: '【首次尝鲜】螺蛳粉3件套单人餐',
@@ -227,7 +248,7 @@ const productList = ref([
     save: '6.8元'
   },
   {
-    id: 2,
+    id: '2',
     image: 'https://img01.yzcdn.cn/vant/apple-2.jpg',
     boughtTag: '最近买过',
     title: '【解辣解腻】原味螺蛳粉/大片腐竹螺蛳粉...',
@@ -238,7 +259,7 @@ const productList = ref([
     save: '6.9元'
   },
   {
-    id: 3,
+    id: '3',
     image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg',
     boughtTag: '',
     title: '【周年庆专属】可口可乐',
@@ -249,7 +270,7 @@ const productList = ref([
     save: '2.01元'
   },
   {
-    id: 4,
+    id: '4',
     image: 'https://img01.yzcdn.cn/vant/custom-empty-image.png',
     boughtTag: '',
     title: '【双人餐】招牌螺蛳粉6件套',
@@ -261,23 +282,75 @@ const productList = ref([
   }
 ])
 
+// 2. 页面加载完成后，真实调接口拉取店铺与商品
+onMounted(async () => {
+  // A. 获取店铺详情（文档 5.3.2）
+  try {
+    const shopData = await getShopDetailAPI(shopId.value)
+    if (shopData) {
+      shopInfo.value = {
+        name: shopData.name,
+        address: shopData.address,
+        businessHours: shopData.businessHours || '10:00-22:00',
+        phone: shopData.phone || '020-12345678'
+      }
+    }
+  } catch (err) {
+    // 骨架期或离线时静默处理
+  }
+
+  // B. 获取该店铺下的真实在售商品（文档 5.4.1）
+  try {
+    const products = await getShopProductsAPI(shopId.value)
+    if (products && products.length > 0) {
+      productList.value = products.map(item => ({
+        id: item.id,
+        image: item.imageUrl || 'https://img01.yzcdn.cn/vant/apple-1.jpg',
+        boughtTag: '',
+        title: item.name,
+        sales: `${item.soldCount || 0}`,
+        price: formatPrice(item.price), // 统一分转元
+        originPrice: formatPrice(item.price * 1.3),
+        subsidy: '1.5元',
+        save: '5.0元'
+      }))
+    }
+  } catch (err) {
+    // 骨架期静默处理，继续使用原有的商品列表
+  }
+})
+
 // 1. 返回上一页（保证从哪跳进来的就能退回哪）
 const handleBack = () => {
   router.back()
 }
 
-// 2. 点击进入商品详情页
-const goToDetail = () => {
-  router.push('/detail')
+// 2. 点击进入商品详情页（智能携带该商品的真实 ID）
+const goToDetail = (item) => {
+  const targetId = item?.id || '1'
+  router.push({
+    path: '/detail',
+    query: { id: targetId }
+  })
 }
 
-// 关注切换
-const toggleFollow = () => {
+// 关注切换（联动真实收藏/关注接口文档 5.7）
+const toggleFollow = async () => {
   isFollowed.value = !isFollowed.value
   showToast(isFollowed.value ? '已成功关注商家' : '已取消关注')
+
+  try {
+    if (isFollowed.value) {
+      await addFavoriteShopAPI(shopId.value)
+    } else {
+      await removeFavoriteShopAPI(shopId.value)
+    }
+  } catch (err) {
+    // 骨架期静默处理
+  }
 }
 
-// 其它交互
+// 其它交互方法（保持你原本的代码）
 const handleSearch = () => showToast('搜索本店菜品')
 const handleFavorite = () => {
   isFav.value = !isFav.value
@@ -287,7 +360,7 @@ const handleShare = () => showToast('分享店铺页面')
 const handleMore = () => showToast('更多操作')
 const handleHoursDetail = () => showToast('查看营业时段详情')
 const handleNavigation = () => showToast('正在唤起地图导航...')
-const handleCall = () => showToast('正在拨打商家电话')
+const handleCall = () => showToast(`正在拨打商家电话：${shopInfo.value.phone}`)
 const handleAllCoupons = () => showToast('查看本店全部优惠券')
 </script>
 

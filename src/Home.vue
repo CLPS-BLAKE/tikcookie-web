@@ -218,30 +218,37 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router' // 👈 引入路由
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+// 1. 引入商品接口与金额格式化工具
+import { getCategoriesAPI, getProductsAPI } from './api/goods'
+import { formatPrice } from './utils/format'
 
 const router = useRouter()
 
-// 1. 去搜索页
+// 路由跳转方法
 const goToSearch = () => {
   router.push('/search')
 }
 
-// 2. 去详情页
-const goToDetail = () => {
-  router.push('/detail')
+// 智能详情页跳转：兼容带参数和不带参数
+const goToDetail = (item) => {
+  const targetId = item?.id || '1'
+  router.push({
+    path: '/detail',
+    query: { id: targetId }
+  })
 }
 
-// 3. 去个人中心/订单页
 const goToUser = () => {
   router.push('/user')
 }
 
 const activeTab = ref(0)
-const tabs = ['推荐', '甜点饮品', '快餐小吃', '正餐美食', '休闲娱乐', '超市便利']
+// 分类数据（响应式，支持后续由后端接口更新）
+const tabs = ref(['推荐', '甜点饮品', '快餐小吃', '正餐美食', '休闲娱乐', '超市便利'])
 
-// 模拟截图里的真实商品数据
+// 你的原版商品数据（作为核心保底）
 const goodsList = ref([
   {
     id: 1,
@@ -283,6 +290,42 @@ const goodsList = ref([
     subsidy: '平台补贴1.4元'
   }
 ])
+
+// 2. 页面加载完成后触发真实接口
+onMounted(async () => {
+  // A. 获取真实分类（对应文档 5.3.1）
+  try {
+    const categories = await getCategoriesAPI()
+    if (categories && categories.length > 0) {
+      tabs.value = ['推荐', ...categories.map(c => c.name)]
+    }
+  } catch (err) {
+    // 连不上后端时静默处理，保留原有的默认分类
+  }
+
+  // B. 获取真实商品流（对应文档 5.4.3）
+  try {
+    const res = await getProductsAPI({ page: 1, size: 10, sort: 'latest' })
+    if (res && res.list && res.list.length > 0) {
+      // 成功获取到真实数据时，将后端的分转成元并替换列表
+      goodsList.value = res.list.map(item => ({
+        id: item.id,
+        image: item.imageUrl || 'https://img01.yzcdn.cn/vant/custom-empty-image.png',
+        imgTag: item.type === 'FLASH' ? '限时抢购' : '特惠团购',
+        brand: item.shopName,
+        title: item.name,
+        price: formatPrice(item.price), // 统一分转元
+        originPrice: formatPrice(item.price * 1.3),
+        sales: `已售${item.soldCount || 0}`,
+        store: item.shopName,
+        distance: '<500m',
+        subsidy: '平台立减补贴'
+      }))
+    }
+  } catch (err) {
+    // 连不上后端时静默处理，直接继续使用上面写好的3个默认商品
+  }
+})
 </script>
 
 <style scoped>
