@@ -1,0 +1,24 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  /* PC端背景设为淡灰，衬托出中间的“手机” */
+  background-color: #eef0f3;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  /* 限制在电脑上最大宽度为手机宽度 430px */
+  max-width: 430px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background-color: #f7f8fa;
+  /* 加一点手机投影质感 */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow-x: hidden;
+}
