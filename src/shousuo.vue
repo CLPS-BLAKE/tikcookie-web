@@ -82,8 +82,16 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router' // 👈 1. 引入路由
 import { showToast, showConfirmDialog } from 'vant'
 
+
+const router = useRouter() // 👈 2. 创建路由实例
+
+// 3. 将原本的模拟提示改成真实返回上一页
+const handleBack = () => {
+  router.back() // 👈 谁跳进来的就返回给谁（比如从首页点进来的就退回首页）
+}
 // 当前输入的关键词
 const keyword = ref('汉堡王')
 
@@ -114,10 +122,7 @@ const guessList = ref([
   { name: '张仔记干蒸排骨饭', isHot: false }
 ])
 
-// 返回
-const handleBack = () => {
-  showToast('返回上一页')
-}
+
 
 // 触发搜索
 const handleSearch = (word) => {
