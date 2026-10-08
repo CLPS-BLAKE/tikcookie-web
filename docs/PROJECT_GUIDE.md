@@ -25,18 +25,23 @@ TikCookie 是一个团购业务方向的 Java 教学展示项目。团队共 5 �
 
 ## 3. 部署关系
 
+2026-10-08 已确认 ECS 规格为 2 核 4 GB，四种中间件同驻 node1；后端已部署阿里云，Nginx/前端待部署。后端具体实例/版本及是否同驻 node1 待记录，不能沿用旧双 ECS 分工。下列 Nginx 统一入口是待部署目标，不表示当前已接通。
+
+同日部署补充：负责人确认 Logstash JDBC 已在 `/opt/tikcookie-data` 通过 Compose 部署并完成 MySQL → ES 同步，店铺 5/5、商品 30/30，mapping 符合配置。Java 搜索 API 与 RabbitMQ 消费仍待完成，前端真实搜索仍需联调；见 [Logstash 部署记录](LOGSTASH_SYNC.md)。
+
 - 浏览器通过 Nginx 访问前端页面。
 - `/api` 请求由 Nginx 转发到 Spring Boot。
 - 前端不直接连接 MySQL、Redis、RabbitMQ 或 Elasticsearch。
 - 图片上传凭证和访问地址由后端控制，前端只使用约定接口。
 
-## 4. 尚待项目骨架确定的内容
+## 4. 已落地的工程与当前缺口
 
-- Node.js 与包管理器版本
-- Vue、Vite、Element Plus 的固定版本
-- 状态管理、请求库、测试框架和目录结构
-- 本地启动、检查、测试和构建命令
-- 前端容器镜像和 CI/CD 工作流
+- 远端 main `dfe3b54` 已有 Vue 3/Vite/Vant、Vue Router、Axios 与 npm 锁文件；实际组件库不是 Element Plus。
+- Node.js engines 为 `^22.18.0 || >=24.12.0`；安装 `npm ci`，开发/构建/预览用 npm run dev/build/preview。
+- 已有 10 个页面路由与 `/api/v1` 请求封装，Vite 将 `/api` 转发到本地后端 8080。
+- 登录失败仍会写假 token 并提示成功，需删除自动兜底或显式隔离 mock；不能把页面可跳转当成鉴权通过。
+- 首页/详情/店铺主要静态数据，搜索与交易操作未真实接通；补 ID 传递、订单状态和资料/头像/收藏。
+- 测试框架、检查/测试脚本、前端 CI、Dockerfile、发布与应用部署尚待落地；现有移动风格页面仍需桌面浏览器验收。
 
-这些决定需要通过 PR 落地并更新 README 与测试文档。
+详细前后端代码基线、node1 部署事实、优先级和验收条件见 [PROGRESS.md](PROGRESS.md)。本文状态指远端 main，不表示较早的本地文档分支已包含源码；所有剩余工作通过 PR 落地。
 
