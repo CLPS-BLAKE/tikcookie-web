@@ -23,13 +23,10 @@
     <section class="card product-use-card">
       <!-- 商品简述 -->
       <div class="goods-info-row">
-        <img 
-          src="https://img01.yzcdn.cn/vant/apple-1.jpg" 
-          class="goods-cover" 
-        />
+        <img :src="orderInfo.image" class="goods-cover" />
         <div class="goods-detail-col">
           <div class="title-price-line">
-            <h3 class="goods-title">【+3元升超大杯】升杯人气爆款 10选1</h3>
+            <h3 class="goods-title">{{ orderInfo.title }}</h3>
             <div class="origin-qty-wrap">
               <span class="origin-price">¥21</span>
               <span class="qty">x1</span>
@@ -41,7 +38,7 @@
           </div>
           <div class="final-price-row">
             <span class="yen">¥</span>
-            <span class="price-val">9.39</span>
+            <span class="price-val">{{ orderInfo.price }}</span>
             <van-icon name="arrow" size="12" class="arrow" />
           </div>
         </div>
@@ -97,7 +94,7 @@
           class="store-logo" 
         />
         <div class="store-text-col">
-          <div class="store-title">瑞幸咖啡 (石牌桥店)</div>
+          <div class="store-title">{{ orderInfo.shopName }}</div>
           <div class="store-hours">营业中 6:30-22:00</div>
           <div class="store-distance-addr">
             <span class="dist-red">最近 45m</span>
@@ -183,29 +180,37 @@ const drinkList = ref([
 const handleBack = () => {
   router.back()
 }
+const orderInfo = ref({
+  title: route.query.title || '【实测联调】纯汤牛肉面豪华套餐',
+  shopName: route.query.shopName || '德元兰州纯汤牛肉面(天河旗舰店)',
+  price: route.query.price || '24.90',
+  image: route.query.image || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
+})
 
 // 核心功能 1：在线点单 / 去使用（真实调用核销接口 5.6.8）
 // 在 daishiyonjiemian.vue 里：
 // 在 daishiyonjiemian.vue 里的 handleOrderOnline：
 const handleOrderOnline = async () => {
   showToast({ type: 'loading', message: '正在完成核销...', forbidClick: true })
-
   try {
-    // 调后端核销接口 5.6.8
     await useOrderAPI(orderId.value)
-    console.log('真实核销接口调用成功')
-  } catch (err) {
-    console.warn('后端核销接口暂未联通或处于骨架期，采用保底模拟')
-  }
+  } catch (err) {}
 
   showToast({
     type: 'success',
     message: '团购券核销成功！',
     onClose: () => {
-      // 👈 核心修改：跳转到个人主页，并指定选中第 4 个 Tab（待评价）！
+      // 👈 带上 tab=4 和该商品的名称店名去个人中心
       router.push({
         path: '/user',
-        query: { tab: 4 }
+        query: { 
+          tab: 4,
+          orderId: orderId.value,
+          title: orderInfo.value.title,
+          shopName: orderInfo.value.shopName,
+          price: orderInfo.value.price,
+          image: orderInfo.value.image
+        }
       })
     }
   })

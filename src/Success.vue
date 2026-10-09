@@ -15,15 +15,10 @@
     <!-- 2. 商品卡片 -->
     <section class="card product-card">
       <div class="goods-row">
-        <img
-          src="https://img01.yzcdn.cn/vant/apple-1.jpg"
-          class="goods-thumb"
-        />
+        <img :src="orderInfo.image" class="goods-thumb" />
         <div class="goods-info">
           <div class="title-price-line">
-            <h3 class="goods-title">
-              【解辣解腻】原味螺蛳粉/大片腐竹螺蛳粉（2选1）+特色糖水
-            </h3>
+            <h3 class="goods-title">{{ orderInfo.title }}</h3>
             <div class="origin-col">
               <span class="origin-price">¥22</span>
               <span class="qty">x1</span>
@@ -32,7 +27,7 @@
           <div class="final-price-action-row">
             <div class="price-wrap">
               <span class="yen">¥</span>
-              <span class="price-num">15.1</span>
+              <span class="price-num">{{ orderInfo.price }}</span>
             </div>
             <!-- 放到 ¥15.1 后面的“去使用”小按钮 -->
             <button class="goto-use-btn" @click="handleUseCoupon">
@@ -59,7 +54,7 @@
           class="store-badge-img"
         />
         <div class="store-main-text">
-          <div class="store-title-text">周成芝螺蛳粉(财富广场...</div>
+          <div class="store-title-text">{{ orderInfo.shopName }}</div>
           <div class="store-status-text">休息中 10:00-22:00</div>
           <div class="store-dist-addr">
             <span class="dist-highlight">最近537m</span>
@@ -215,31 +210,40 @@
 
 <script setup>
 import { ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from 'vue-router' // 👈 必须有 useRoute
 import { showToast } from "vant";
-
 const router = useRouter();
+const route = useRoute() 
+// 👈 核心修改：动态读取从收银台传过来的真实订单 ID！
+const orderId = ref(route.query.orderId || '1113784124297331165')
+
 
 // 1. 返回首页（支付成功后返回一般直接回首页，防止重复支付）
 const handleBack = () => {
   router.push("/home");
 };
 
-// 2. 去使用/核销团购券
-// 在 Success.vue 里的 handleUseCoupon 加上传参：
-const handleUseCoupon = () => {
-  router.push({
-    path: "/voucher",
-    query: { orderId: orderId.value }, // 👈 把单号传过去
-  });
-};
+// // 2. 去使用/核销团购券
+// // 在 Success.vue 里的 handleUseCoupon 加上传参：
+// const handleUseCoupon = () => {
+//   router.push({
+//     path: "/voucher",
+//     query: { orderId: orderId.value }, // 👈 把单号传过去
+//   });
+// };
 
-// 3. 去评价
+// 去评价时，传给评价页
 const handleEvaluate = () => {
-  router.push("/comment");
-};
+  router.push({
+    path: '/comment',
+    query: { 
+      orderId: orderId.value,
+      shopName: orderInfo.value.shopName 
+    }
+  })
+}
 
-const orderId = ref("1113784124297331165");
+
 
 const handleService = () => showToast("联系客服");
 const handleAllStores = () => showToast("查看114家门店");
@@ -255,6 +259,29 @@ const copyOrderNumber = () => {
   navigator.clipboard.writeText(orderId.value);
   showToast("订单号已复制");
 };
+const orderInfo = ref({
+  title: route.query.title || '【实测联调】纯汤牛肉面豪华套餐',
+  shopName: route.query.shopName || '德元兰州纯汤牛肉面(天河旗舰店)',
+  price: route.query.price || '24.90',
+  image: route.query.image || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
+})
+
+// 点击去使用，把真实单号继续往后传给待使用页面
+// 去使用时，传给待使用核销页
+const handleUseCoupon = () => {
+  router.push({
+    path: '/voucher',
+    query: { 
+      orderId: orderId.value,
+      title: orderInfo.value.title,
+      shopName: orderInfo.value.shopName,
+      price: orderInfo.value.price,
+      image: orderInfo.value.image
+    }
+  })
+}
+
+
 </script>
 
 <style scoped>

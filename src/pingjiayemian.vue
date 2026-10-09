@@ -5,7 +5,7 @@
       <div class="back-btn" @click="handleBack">
         <van-icon name="arrow-left" size="20" color="#222" />
       </div>
-      <h2 class="shop-name-title">望村里·湘菜(星元汇店)</h2>
+      <h2 class="shop-name-title">{{ route.query.shopName || '正宗特色好店' }}</h2>
       <div class="placeholder-right"></div>
     </header>
 
@@ -123,7 +123,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-
+import { useRoute } from 'vue-router'
+const route = useRoute()
 const router = useRouter()
 
 // 状态管理

@@ -30,9 +30,9 @@
             <span class="brand-name">肯悦咖啡</span>
           </div>
           <div class="brand-product-flex">
-            <img 
-              src="https://img01.yzcdn.cn/vant/apple-1.jpg" 
-              class="brand-goods-img" 
+            <img
+              src="https://img01.yzcdn.cn/vant/apple-1.jpg"
+              class="brand-goods-img"
             />
             <div class="brand-goods-info">
               <div class="brand-goods-title">早餐随心配（咖啡等）</div>
@@ -48,9 +48,9 @@
             <span class="brand-name">肯德基</span>
           </div>
           <div class="brand-product-flex">
-            <img 
-              src="https://img01.yzcdn.cn/vant/apple-2.jpg" 
-              class="brand-goods-img" 
+            <img
+              src="https://img01.yzcdn.cn/vant/apple-2.jpg"
+              class="brand-goods-img"
             />
             <div class="brand-goods-info">
               <div class="brand-goods-title">3份元气早餐两件套</div>
@@ -138,8 +138,8 @@
 
     <!-- 4. 滑动分类 Tab -->
     <nav class="category-tabs">
-      <div 
-        v-for="(tab, index) in tabs" 
+      <div
+        v-for="(tab, index) in tabs"
         :key="index"
         :class="['tab-item', { active: activeTab === index }]"
         @click="activeTab = index"
@@ -163,7 +163,13 @@
 
     <!-- 6. 商品瀑布流列表（单列大卡片） -->
     <section class="goods-list">
-      <div v-for="item in goodsList" :key="item.id" class="goods-card" @click="goToDetail">
+      <!-- 👈 重点：必须明确写上 goToDetail(item)，把这件具体的商品传过去！ -->
+      <div
+        v-for="item in goodsList"
+        :key="item.id"
+        class="goods-card"
+        @click="goToDetail(item)"
+      >
         <!-- 商品大图 -->
         <div class="goods-cover-wrap">
           <img :src="item.image" class="goods-cover" />
@@ -181,7 +187,9 @@
 
           <!-- 距离与热销 -->
           <div class="meta-row">
-            <span class="distance-store">{{ item.distance }} {{ item.store }}</span>
+            <span class="distance-store"
+              >{{ item.distance }} {{ item.store }}</span
+            >
             <span class="sales">{{ item.sales }}</span>
           </div>
 
@@ -218,22 +226,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 // 1. 引入商品接口与金额格式化工具
-import { getCategoriesAPI, getProductsAPI } from './api/goods'
-import { formatPrice } from './utils/format'
+import { getCategoriesAPI, getProductsAPI } from "./api/goods";
+import { formatPrice } from "./utils/format";
 
-const router = useRouter()
+const router = useRouter();
 
 // 路由跳转方法
 const goToSearch = () => {
-  router.push('/search')
-}
+  router.push("/search");
+};
 
 // 智能详情页跳转：兼容带参数和不带参数
+// 升级版：精准提取商品 ID
 const goToDetail = (item) => {
-  const targetId = item?.id || '1'
+  // 如果点的是真正的商品对象，取它真实的 id；否则才保底用 '1'
+  const targetId = (item && item.id && typeof item.id !== 'object') ? item.id : (item?.id || '1')
+  
+  console.log('正在跳转商品，目标 ID 是:', targetId) // 可以在控制台看打印出的真实 ID
+
   router.push({
     path: '/detail',
     query: { id: targetId }
@@ -241,63 +254,70 @@ const goToDetail = (item) => {
 }
 
 const goToUser = () => {
-  router.push('/user')
-}
+  router.push("/user");
+};
 
-const activeTab = ref(0)
+const activeTab = ref(0);
 // 分类数据（响应式，支持后续由后端接口更新）
-const tabs = ref(['推荐', '甜点饮品', '快餐小吃', '正餐美食', '休闲娱乐', '超市便利'])
+const tabs = ref([
+  "推荐",
+  "甜点饮品",
+  "快餐小吃",
+  "正餐美食",
+  "休闲娱乐",
+  "超市便利",
+]);
 
 // 你的原版商品数据（作为核心保底）
 const goodsList = ref([
   {
     id: 1,
-    image: 'https://img01.yzcdn.cn/vant/custom-empty-image.png',
-    imgTag: '{牛肉面+酱牛肉} 卤蛋/小菜2选1',
-    brand: '德元兰州纯汤牛肉面',
-    title: '【佳节】【肉蛋双飞】纯汤牛肉面+酱牛肉50g+...',
-    distance: '161m',
-    store: '广州旗舰店',
-    sales: '热销2万+',
-    price: '24.9',
-    originPrice: '33',
-    subsidy: '立减 8.1元 · 消费再返 2元'
+    image: "https://img01.yzcdn.cn/vant/custom-empty-image.png",
+    imgTag: "{牛肉面+酱牛肉} 卤蛋/小菜2选1",
+    brand: "德元兰州纯汤牛肉面",
+    title: "【佳节】【肉蛋双飞】纯汤牛肉面+酱牛肉50g+...",
+    distance: "161m",
+    store: "广州旗舰店",
+    sales: "热销2万+",
+    price: "24.9",
+    originPrice: "33",
+    subsidy: "立减 8.1元 · 消费再返 2元",
   },
   {
     id: 2,
-    image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg',
-    imgTag: '【设计师 洗·剪·吹】',
-    brand: '藤野造型',
-    title: '[心动美力指南美力搭子] 设计师洗剪吹套餐',
-    distance: '<100m',
-    store: '万菱汇店',
-    sales: '热销100万+',
-    price: '28.9',
-    originPrice: '88',
-    subsidy: '平台补贴1元'
+    image: "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg",
+    imgTag: "【设计师 洗·剪·吹】",
+    brand: "藤野造型",
+    title: "[心动美力指南美力搭子] 设计师洗剪吹套餐",
+    distance: "<100m",
+    store: "万菱汇店",
+    sales: "热销100万+",
+    price: "28.9",
+    originPrice: "88",
+    subsidy: "平台补贴1元",
   },
   {
     id: 3,
-    image: 'https://img01.yzcdn.cn/vant/apple-1.jpg',
-    imgTag: '爆款超大杯饮品15选1',
-    brand: '瑞幸咖啡',
-    title: '【限定联名杯】超大杯系列15选1',
-    distance: '<100m',
-    store: '石牌桥店',
-    sales: '热销100万+',
-    price: '11.5',
-    originPrice: '23',
-    subsidy: '平台补贴1.4元'
-  }
-])
+    image: "https://img01.yzcdn.cn/vant/apple-1.jpg",
+    imgTag: "爆款超大杯饮品15选1",
+    brand: "瑞幸咖啡",
+    title: "【限定联名杯】超大杯系列15选1",
+    distance: "<100m",
+    store: "石牌桥店",
+    sales: "热销100万+",
+    price: "11.5",
+    originPrice: "23",
+    subsidy: "平台补贴1.4元",
+  },
+]);
 
 // 2. 页面加载完成后触发真实接口
 onMounted(async () => {
   // A. 获取真实分类（对应文档 5.3.1）
   try {
-    const categories = await getCategoriesAPI()
+    const categories = await getCategoriesAPI();
     if (categories && categories.length > 0) {
-      tabs.value = ['推荐', ...categories.map(c => c.name)]
+      tabs.value = ["推荐", ...categories.map((c) => c.name)];
     }
   } catch (err) {
     // 连不上后端时静默处理，保留原有的默认分类
@@ -305,27 +325,28 @@ onMounted(async () => {
 
   // B. 获取真实商品流（对应文档 5.4.3）
   try {
-    const res = await getProductsAPI({ page: 1, size: 10, sort: 'latest' })
+    const res = await getProductsAPI({ page: 1, size: 10, sort: "latest" });
     if (res && res.list && res.list.length > 0) {
       // 成功获取到真实数据时，将后端的分转成元并替换列表
-      goodsList.value = res.list.map(item => ({
+      goodsList.value = res.list.map((item) => ({
         id: item.id,
-        image: item.imageUrl || 'https://img01.yzcdn.cn/vant/custom-empty-image.png',
-        imgTag: item.type === 'FLASH' ? '限时抢购' : '特惠团购',
+        image:
+          item.imageUrl || "https://img01.yzcdn.cn/vant/custom-empty-image.png",
+        imgTag: item.type === "FLASH" ? "限时抢购" : "特惠团购",
         brand: item.shopName,
         title: item.name,
         price: formatPrice(item.price), // 统一分转元
         originPrice: formatPrice(item.price * 1.3),
         sales: `已售${item.soldCount || 0}`,
         store: item.shopName,
-        distance: '<500m',
-        subsidy: '平台立减补贴'
-      }))
+        distance: "<500m",
+        subsidy: "平台立减补贴",
+      }));
     }
   } catch (err) {
     // 连不上后端时静默处理，直接继续使用上面写好的3个默认商品
   }
-})
+});
 </script>
 
 <style scoped>
@@ -365,7 +386,7 @@ onMounted(async () => {
 .search-input-wrap {
   flex: 1;
   height: 38px;
-  border: 1.5px solid #000000; 
+  border: 1.5px solid #000000;
   border-radius: 20px;
   display: flex;
   align-items: center;
@@ -403,7 +424,7 @@ onMounted(async () => {
   margin: 10px 12px;
   border-radius: 16px;
   border: 2px solid #ff3355;
-  background-color: #ff2346;       /* 👈 改为纯红色（或者 #ff2a4b / #ff0033） */
+  background-color: #ff2346; /* 👈 改为纯红色（或者 #ff2a4b / #ff0033） */
   padding: 6px 8px 10px 8px;
 }
 .brand-header {
@@ -435,7 +456,7 @@ onMounted(async () => {
   background-color: #fff;
   border-radius: 12px;
   padding: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 .brand-name-row {
   display: flex;
@@ -449,8 +470,14 @@ onMounted(async () => {
   border-radius: 4px;
   font-weight: bold;
 }
-.brand-mini-logo.red-bg { background-color: #e60012; color: #fff; }
-.brand-mini-logo.kfc-logo { border: 1px solid #e60012; color: #e60012; }
+.brand-mini-logo.red-bg {
+  background-color: #e60012;
+  color: #fff;
+}
+.brand-mini-logo.kfc-logo {
+  border: 1px solid #e60012;
+  color: #e60012;
+}
 .brand-name {
   font-size: 13px;
   font-weight: bold;
@@ -595,7 +622,7 @@ onMounted(async () => {
   position: relative;
   height: 56px;
   background-color: #fff2f4; /* 浅淡粉色背景 */
-  border: 1px solid #ffd3db;   /* 极细浅粉边框 */
+  border: 1px solid #ffd3db; /* 极细浅粉边框 */
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -696,7 +723,9 @@ onMounted(async () => {
   overflow-x: auto;
   white-space: nowrap;
 }
-.category-tabs::-webkit-scrollbar { display: none; }
+.category-tabs::-webkit-scrollbar {
+  display: none;
+}
 .tab-item {
   font-size: 15px;
   color: #333;
@@ -725,7 +754,9 @@ onMounted(async () => {
   padding: 8px 14px;
   overflow-x: auto;
 }
-.filter-tags-row::-webkit-scrollbar { display: none; }
+.filter-tags-row::-webkit-scrollbar {
+  display: none;
+}
 .filter-pill {
   font-size: 12px;
   padding: 4px 10px;
@@ -882,13 +913,13 @@ onMounted(async () => {
   font-weight: 900; /* 最粗字重 */
   font-family: "PingFang SC", "Microsoft YaHei", "Arial Black", sans-serif;
   /* 关键点 1：向前倾斜 8 度，营造抢购紧迫感 */
-  transform: skewX(-7deg); 
+  transform: skewX(-7deg);
   letter-spacing: -1px;
   line-height: 1;
   /* 关键点 2：外层深粉红立体描边轮廓（模拟贴纸切边） */
   -webkit-text-stroke: 1.2px #d8002a;
   /* 关键点 3：多重高精度阴影，让白字在红底上极其立体突出 */
-  text-shadow: 
+  text-shadow:
     0 1px 0 #cc0029,
     0 -1px 0 #cc0029,
     1px 0 0 #cc0029,
