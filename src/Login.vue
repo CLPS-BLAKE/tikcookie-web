@@ -162,7 +162,9 @@ const isPhoneValid = computed(() => {
   return phoneReg.test(phone.value)
 })
 
-// 1. 发送验证码
+// 在 Login.vue 的 <script setup> 中：
+
+// 1. 发送验证码（对接 v4 接口：直接从响应 data 拿验证码并自动回填）
 const handleSendCode = async () => {
   if (!isPhoneValid.value) {
     showToast('请输入正确的11位手机号')
@@ -170,9 +172,26 @@ const handleSendCode = async () => {
   }
   if (countdown.value > 0) return
 
+  showToast({ type: 'loading', message: '正在发送...', forbidClick: true })
+
   try {
-    await sendSmsCodeAPI(phone.value)
-    showToast('验证码已发送，请在后端控制台查看')
+    // 真实调接口：发验证码（后端 v4 接口会把验证码作为 data 返回）
+    const smsCode = await sendSmsCodeAPI(phone.value)
+    
+    // 👈 核心优化点：直接拿到了 6 位验证码！
+    if (smsCode) {
+      // 1. 自动填入输入框（无需切屏找日志！）
+      code.value = String(smsCode)
+      // 2. 友好弹窗提示
+      showToast({
+        type: 'success',
+        message: `验证码已获取：${smsCode}`
+      })
+    } else {
+      showToast('验证码已发送，请查收')
+    }
+
+    // 开启 60 秒倒计时
     countdown.value = 60
     timer = setInterval(() => {
       countdown.value--
@@ -181,7 +200,7 @@ const handleSendCode = async () => {
       }
     }, 1000)
   } catch (err) {
-    // 报错信息已在 request.js 中自动 Toast 提示
+    // 报错已在 request.js 拦截器统一处理
   }
 }
 

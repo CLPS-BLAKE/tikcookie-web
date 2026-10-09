@@ -11,7 +11,7 @@ import Success from '../Success.vue'
 import Daishiyong from '../daishiyonjiemian.vue'
 import Gerenzhuzhi from '../gerenzhuzhi.vue'
 import Pingjiayemian from '../pingjiayemian.vue'
-
+import Shoucang from '../shoucang.vue' // 👈 引入收藏页面
 // 路由规则清单
 const routes = [
   // 默认根路径重定向到登录页
@@ -25,7 +25,8 @@ const routes = [
   { path: '/success', component: Success },
   { path: '/voucher', component: Daishiyong },
   { path: '/user', component: Gerenzhuzhi },
-  { path: '/comment', component: Pingjiayemian }
+  { path: '/comment', component: Pingjiayemian },
+  { path: '/favorites', component: Shoucang }, // 👈 新增收藏路由
 ]
 
 const router = createRouter({

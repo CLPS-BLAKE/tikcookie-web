@@ -181,14 +181,25 @@ const handleViewAllDishes = () => {
 }
 
 // 5. 提交评价并在成功后跳转回首页
+// 在 pingjiayemian.vue 的 submitReview 中：
 const submitReview = () => {
+  // 获取当前评价的订单 ID
+  const orderId = route.query.orderId || '1'
+
+  // 把已评价的单号记录进本地存储
+  const reviewedOrders = JSON.parse(localStorage.getItem('reviewedOrders') || '[]')
+  if (!reviewedOrders.includes(orderId)) {
+    reviewedOrders.push(orderId)
+    localStorage.setItem('reviewedOrders', JSON.stringify(reviewedOrders))
+  }
+
   showToast({
     type: 'success',
     message: '评价提交成功！',
     duration: 1500,
     onClose: () => {
-      // 👈 核心：提示结束后，自动跳回首页！
-      router.push('/home')
+      // 提交后可以跳回个人主页或者首页
+      router.push('/user')
     }
   })
 }

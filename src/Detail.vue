@@ -9,8 +9,13 @@
         <div class="icon-circle">
           <van-icon name="search" size="18" />
         </div>
-        <div class="icon-circle">
-          <van-icon name="star-o" size="18" />
+         <div class="icon-circle" @click="toggleFavorite">
+          <!-- 收藏时变黄实心，未收藏为空心白色 -->
+          <van-icon 
+            :name="isFavorited ? 'star' : 'star-o'" 
+            size="18" 
+            :color="isFavorited ? '#ffd21e' : '#ffffff'" 
+          />
         </div>
         <div class="icon-circle">
           <van-icon name="share-o" size="18" />
@@ -191,6 +196,7 @@
 </template>
 
 <script setup>
+import { addFavoriteAPI, removeFavoriteAPI, getFavoriteStatusAPI } from './api/favorite'
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast } from 'vant'
@@ -198,7 +204,8 @@ import { showToast } from 'vant'
 import { getProductDetailAPI } from './api/goods'
 import { createOrderAPI } from './api/order'
 import { formatPrice } from './utils/format'
-
+// 收藏状态
+const isFavorited = ref(false)
 const router = useRouter()
 const route = useRoute()
 
@@ -245,7 +252,56 @@ onMounted(async () => {
   } catch (err) {
     console.warn('详情接口骨架期或离线，展示保底')
   }
+  // 👈 新增：向后端查询这件商品的真实收藏状态
+  try {
+    const favRes = await getFavoriteStatusAPI('PRODUCT', productId.value)
+    if (favRes && typeof favRes.favorited === 'boolean') {
+      isFavorited.value = favRes.favorited
+    }
+  } catch (err) {
+    // 骨架期或离线时静默处理
+  }
 })
+
+// 在 Detail.vue 的 toggleFavorite 中：
+const toggleFavorite = async () => {
+  const previousState = isFavorited.value
+  isFavorited.value = !previousState
+
+  // 获取本地已收藏列表
+  let localFavs = JSON.parse(localStorage.getItem('my_favorites') || '[]')
+
+  if (isFavorited.value) {
+    // 1. 点亮星星：加入收藏
+    showToast({ type: 'success', message: '已加入收藏！' })
+    const newFavItem = {
+      id: productId.value,
+      targetType: 'PRODUCT',
+      name: productInfo.value.name,
+      price: productInfo.value.price,
+      originPrice: productInfo.value.originPrice,
+      image: productInfo.value.image,
+      shopName: productInfo.value.shopName,
+      favTime: '刚刚'
+    }
+    // 去重后加入
+    localFavs = [newFavItem, ...localFavs.filter(i => !(i.id == productId.value && i.targetType === 'PRODUCT'))]
+    localStorage.setItem('my_favorites', JSON.stringify(localFavs))
+
+    try {
+      await addFavoriteAPI('PRODUCT', productId.value)
+    } catch (e) {}
+  } else {
+    // 2. 取消星星：移出收藏
+    showToast({ message: '已取消收藏' })
+    localFavs = localFavs.filter(i => !(i.id == productId.value && i.targetType === 'PRODUCT'))
+    localStorage.setItem('my_favorites', JSON.stringify(localFavs))
+
+    try {
+      await removeFavoriteAPI('PRODUCT', productId.value)
+    } catch (e) {}
+  }
+}
 
 const handleBack = () => {
   router.back()

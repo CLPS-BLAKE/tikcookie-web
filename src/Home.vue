@@ -7,11 +7,21 @@
         <span class="triangle-down"></span>
       </div>
 
-      <div class="search-input-wrap" @click="goToSearch">
-        <!-- 扫码/镜头小图标 -->
-        <van-icon name="scan" class="scan-icon" />
-        <input type="text" placeholder="汉堡王" class="search-input" />
-        <button class="search-action-btn">搜低价</button>
+      <!-- 顶部搜索栏改造 -->
+      <div class="search-input-wrap">
+        <van-icon name="scan" class="scan-icon" @click="goToSearch" />
+        <input 
+          v-model="homeSearchKey" 
+          type="text" 
+          placeholder="汉堡王" 
+          class="search-input"
+          @keyup.enter="handleHomeSearch"
+          @click.stop
+        />
+        <!-- 点击“搜低价”带词跳转 -->
+        <button class="search-action-btn" @click.stop="handleHomeSearch">
+          搜低价
+        </button>
       </div>
     </header>
 
@@ -231,13 +241,24 @@ import { useRouter } from "vue-router";
 // 1. 引入商品接口与金额格式化工具
 import { getCategoriesAPI, getProductsAPI } from "./api/goods";
 import { formatPrice } from "./utils/format";
+// 在 Home.vue 的 <script setup> 里添加：
+const homeSearchKey = ref('')
 
+// 点击“搜低价”或在搜索框按回车
+const handleHomeSearch = () => {
+  const target = homeSearchKey.value.trim() || '汉堡王'
+  router.push({
+    path: '/search',
+    query: { keyword: target } // 👈 核心：把关键词作为参数传给搜索页！
+  })
+}
+
+// 纯点扫码图标进入搜索中心
+const goToSearch = () => {
+  router.push('/search')
+}
 const router = useRouter();
 
-// 路由跳转方法
-const goToSearch = () => {
-  router.push("/search");
-};
 
 // 智能详情页跳转：兼容带参数和不带参数
 // 升级版：精准提取商品 ID
