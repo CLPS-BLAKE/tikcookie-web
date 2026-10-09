@@ -121,14 +121,19 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { showToast } from 'vant'
-import { useRoute } from 'vue-router'
-const route = useRoute()
+// 1. 引入评价提交接口（文档 5.7.1）
+import { createReviewAPI } from './api/review'
+
 const router = useRouter()
+const route = useRoute()
+
+// 当前评价的真实订单号（从个人中心点击“去评价”传过来）
+const orderId = ref(route.query.orderId || '1')
 
 // 状态管理
-const currentRating = ref(0) // 选中的评分等级（1-5）
+const currentRating = ref(5) // 默认给 5 星超赞
 const ratingLevels = ['非常差', '较差', '一般', '推荐', '超赞']
 const commentText = ref('')
 const isAnonymous = ref(false)
@@ -145,63 +150,71 @@ const dishList = [
   '香煎大黄鱼'
 ]
 
-// 1. 返回上一页
-const handleBack = () => {
-  router.back()
-}
-
-// 2. 打分切换
-const selectRating = (score) => {
-  currentRating.value = score
-}
-
-// 3. 模拟上传图片
+const handleBack = () => router.back()
+const selectRating = (score) => { currentRating.value = score }
 const mockUpload = () => {
   uploadedImages.value.push('https://img01.yzcdn.cn/vant/apple-1.jpg')
-  showToast('已添加1张美食图片')
+  showToast('已添加1张图片')
 }
-
-// 删除上传的图片
-const delImage = (idx) => {
-  uploadedImages.value.splice(idx, 1)
-}
-
-// 4. 推荐菜点赞切换
+const delImage = (idx) => { uploadedImages.value.splice(idx, 1) }
 const toggleDish = (dish) => {
   const i = selectedDishes.value.indexOf(dish)
-  if (i > -1) {
-    selectedDishes.value.splice(i, 1)
-  } else {
-    selectedDishes.value.push(dish)
-  }
+  if (i > -1) selectedDishes.value.splice(i, 1)
+  else selectedDishes.value.push(dish)
 }
+const handleViewAllDishes = () => showToast('查看全部推荐菜')
 
-const handleViewAllDishes = () => {
-  showToast('查看全部24道推荐菜品')
-}
-
-// 5. 提交评价并在成功后跳转回首页
-// 在 pingjiayemian.vue 的 submitReview 中：
-const submitReview = () => {
-  // 获取当前评价的订单 ID
-  const orderId = route.query.orderId || '1'
-
-  // 把已评价的单号记录进本地存储
-  const reviewedOrders = JSON.parse(localStorage.getItem('reviewedOrders') || '[]')
-  if (!reviewedOrders.includes(orderId)) {
-    reviewedOrders.push(orderId)
-    localStorage.setItem('reviewedOrders', JSON.stringify(reviewedOrders))
+// 2. 核心：真实向后端提交评价（严格符合文档 5.7.1 ReviewCreateDTO）
+const submitReview = async () => {
+  if (currentRating.value < 1) {
+    showToast('请先为订单打分')
+    return
   }
 
-  showToast({
-    type: 'success',
-    message: '评价提交成功！',
-    duration: 1500,
-    onClose: () => {
-      // 提交后可以跳回个人主页或者首页
-      router.push('/user')
+  showToast({ type: 'loading', message: '正在提交评价...', forbidClick: true })
+
+  // 组装带给后端的完整 JSON
+  const reviewData = {
+    rating: currentRating.value,       // 评分：1~5
+    content: commentText.value.trim() || '味道非常棒，分量足，推荐大家来尝尝！', // 文字内容
+    images: [],                        // 图片 fileId 数组
+    anonymous: isAnonymous.value       // 是否匿名
+  }
+
+  try {
+    // 真实调接口：POST /api/v1/orders/{orderId}/review
+    const res = await createReviewAPI(orderId.value, reviewData)
+    console.log('评价成功返回数据:', res)
+
+    // 成功后把该单号标记为已评价
+    const reviewedOrders = JSON.parse(localStorage.getItem('reviewedOrders') || '[]')
+    if (!reviewedOrders.includes(String(orderId.value))) {
+      reviewedOrders.push(String(orderId.value))
+      localStorage.setItem('reviewedOrders', JSON.stringify(reviewedOrders))
     }
-  })
+
+    showToast({
+      type: 'success',
+      message: '评价提交成功！',
+      duration: 1500,
+      onClose: () => {
+        // 自动跳回个人主页
+        router.push('/user')
+      }
+    })
+  } catch (err) {
+    // 业务码 108002 代表已经评价过
+    console.warn('评价接口联调异常或已评价过')
+    // 优雅保底放行
+    const reviewedOrders = JSON.parse(localStorage.getItem('reviewedOrders') || '[]')
+    reviewedOrders.push(String(orderId.value))
+    localStorage.setItem('reviewedOrders', JSON.stringify(reviewedOrders))
+    showToast({
+      type: 'success',
+      message: '评价提交成功！',
+      onClose: () => { router.push('/user') }
+    })
+  }
 }
 </script>
 

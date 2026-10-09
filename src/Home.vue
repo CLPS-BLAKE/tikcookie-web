@@ -25,46 +25,43 @@
       </div>
     </header>
 
-    <!-- 2. 大牌天天省 卡片 -->
+    <!-- 2. 限时秒杀专区（真数据驱动，支持点击抢购） -->
     <section class="brand-section">
       <div class="brand-header">
         <div class="brand-badge-title">限时秒杀</div>
-        <div class="brand-sub-badge">还剩10件 &gt;</div>
+        <div class="brand-sub-badge">
+          还剩 {{ flashList[0]?.stock || 10 }} 件 &gt;
+        </div>
       </div>
 
+      <!-- 动态展示 2 款抢购商品 -->
       <div class="brand-goods-row">
-        <!-- 肯悦咖啡 -->
-        <div class="brand-card">
+        <!-- 第 1 款秒杀 -->
+        <div class="brand-card" @click="goToFlashDetail(flashList[0] || { id: '2' })">
           <div class="brand-name-row">
-            <span class="brand-mini-logo red-bg">K</span>
-            <span class="brand-name">肯悦咖啡</span>
+            <span class="brand-mini-logo red-bg">秒</span>
+            <span class="brand-name">{{ flashList[0]?.shopName || '肯悦咖啡' }}</span>
           </div>
           <div class="brand-product-flex">
-            <img
-              src="https://img01.yzcdn.cn/vant/apple-1.jpg"
-              class="brand-goods-img"
-            />
+            <img :src="flashList[0]?.image || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600'" class="brand-goods-img" />
             <div class="brand-goods-info">
-              <div class="brand-goods-title">早餐随心配（咖啡等）</div>
-              <div class="brand-goods-price">¥11</div>
+              <div class="brand-goods-title">{{ flashList[0]?.name || '早餐随心配 (咖啡等)' }}</div>
+              <div class="brand-goods-price">¥{{ flashList[0]?.price || '11.00' }}</div>
             </div>
           </div>
         </div>
 
-        <!-- 肯德基 -->
-        <div class="brand-card">
+        <!-- 第 2 款秒杀 -->
+        <div class="brand-card" @click="goToFlashDetail(flashList[1] || { id: '3' })">
           <div class="brand-name-row">
-            <span class="brand-mini-logo kfc-logo">KFC</span>
-            <span class="brand-name">肯德基</span>
+            <span class="brand-mini-logo kfc-logo">抢</span>
+            <span class="brand-name">{{ flashList[1]?.shopName || '肯德基' }}</span>
           </div>
           <div class="brand-product-flex">
-            <img
-              src="https://img01.yzcdn.cn/vant/apple-2.jpg"
-              class="brand-goods-img"
-            />
+            <img :src="flashList[1]?.image || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600'" class="brand-goods-img" />
             <div class="brand-goods-info">
-              <div class="brand-goods-title">3份元气早餐两件套</div>
-              <div class="brand-goods-price">¥29.4</div>
+              <div class="brand-goods-title">{{ flashList[1]?.name || '3份元气早餐两件套' }}</div>
+              <div class="brand-goods-price">¥{{ flashList[1]?.price || '29.40' }}</div>
             </div>
           </div>
         </div>
@@ -236,14 +233,19 @@
 </template>
 
 <script setup>
+// 1. 引入商品接口（包含 getFlashProductsAPI）
+import { getCategoriesAPI, getFlashProductsAPI, getProductsAPI } from './api/goods'
+
+
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 // 1. 引入商品接口与金额格式化工具
-import { getCategoriesAPI, getProductsAPI } from "./api/goods";
+
 import { formatPrice } from "./utils/format";
 // 在 Home.vue 的 <script setup> 里添加：
 const homeSearchKey = ref('')
-
+// 👈 核心：必须声明这个 flashList 响应式空数组！
+const flashList = ref([])
 // 点击“搜低价”或在搜索框按回车
 const handleHomeSearch = () => {
   const target = homeSearchKey.value.trim() || '汉堡王'
@@ -273,7 +275,19 @@ const goToDetail = (item) => {
     query: { id: targetId }
   })
 }
-
+// 👈 补上这个秒杀跳转函数：
+const goToFlashDetail = (flashItem) => {
+  const targetId = flashItem?.id || '2'
+  console.log('正在跳转秒杀商品，ID为:', targetId)
+  
+  router.push({
+    path: '/detail',
+    query: {
+      id: targetId,
+      type: 'FLASH' // 👈 标记为抢购秒杀商品，通知详情页走抢购下单接口！
+    }
+  })
+}
 const goToUser = () => {
   router.push("/user");
 };
@@ -343,7 +357,26 @@ onMounted(async () => {
   } catch (err) {
     // 连不上后端时静默处理，保留原有的默认分类
   }
-
+  // 👈 核心：真实获取抢购秒杀商品（文档 5.4.4）
+  try {
+    const flashData = await getFlashProductsAPI()
+    if (flashData && flashData.length > 0) {
+      flashList.value = flashData.map(item => ({
+        id: item.id,
+        name: item.name,
+        shopName: item.shopName,
+        price: formatPrice(item.price),
+        image: item.imageUrl || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600',
+        stock: item.remainingStock || 10
+      }))
+    }
+  } catch (err) {
+    // 保底：给一个默认数组，防止空指针
+    flashList.value = [
+      { id: '2', name: '早餐随心配 (咖啡等)', shopName: '肯悦咖啡', price: '11.00', stock: 10, image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600' },
+      { id: '3', name: '3份元气早餐两件套', shopName: '肯德基', price: '29.40', stock: 10, image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600' }
+    ]
+  }
   // B. 获取真实商品流（对应文档 5.4.3）
   try {
     const res = await getProductsAPI({ page: 1, size: 10, sort: "latest" });
@@ -367,6 +400,16 @@ onMounted(async () => {
   } catch (err) {
     // 连不上后端时静默处理，直接继续使用上面写好的3个默认商品
   }
+  // 👈 改造点击秒杀商品的跳转
+const goToFlashDetail = (flashItem) => {
+  router.push({
+    path: '/detail',
+    query: {
+      id: flashItem.id || '2',
+      type: 'FLASH' // 👈 标记为抢购商品！
+    }
+  })
+}
 });
 </script>
 

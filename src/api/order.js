@@ -29,3 +29,8 @@ export const refundOrderAPI = (orderId) => {
 export const getMyOrdersAPI = (params = { page: 1, size: 10 }) => {
   return request.get('/orders', { params })
 }
+
+// 7. 抢购/秒杀下单接口（文档 5.6.2，对应 #16）
+export const createFlashOrderAPI = (productId) => {
+  return request.post('/orders/flash', { productId })
+}

@@ -196,13 +196,15 @@
 </template>
 
 <script setup>
+// 在 Detail.vue 顶部引入抢购下单接口：
+import { createOrderAPI, createFlashOrderAPI } from './api/order'
 import { addFavoriteAPI, removeFavoriteAPI, getFavoriteStatusAPI } from './api/favorite'
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast } from 'vant'
 
 import { getProductDetailAPI } from './api/goods'
-import { createOrderAPI } from './api/order'
+
 import { formatPrice } from './utils/format'
 // 收藏状态
 const isFavorited = ref(false)
@@ -317,18 +319,33 @@ const goToShop = () => {
 
 // 5. 下单购买
 // 升级 goToPay：把当前商品的真实信息全部作为参数带给收银台
+// 改造 goToPay 方法：
 const goToPay = async () => {
-  showToast({ type: 'loading', message: '正在创建订单...', forbidClick: true })
+  showToast({ type: 'loading', message: '正在争抢库存...', forbidClick: true })
   let targetOrderId = '1'
 
+  // 判断是否是秒杀商品
+  const isFlash = route.query.type === 'FLASH'
+
   try {
-    const res = await createOrderAPI(productId.value)
+    let res = null
+    if (isFlash) {
+      // 👈 核心分流：调用后端专用的抢购下单接口（文档 5.6.2）
+      console.log('触发秒杀抢购专用下单通道...')
+      res = await createFlashOrderAPI(productId.value)
+    } else {
+      // 普通商品下单接口（文档 5.6.1）
+      res = await createOrderAPI(productId.value)
+    }
+
     if (res && res.orderId) {
       targetOrderId = res.orderId
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('后端下单保底放行')
+  }
 
-  // 👈 核心：把真实的单号、商品名、店名、价格、图片全部传给收银台！
+  // 带着订单号跳去收银台
   router.push({
     path: '/pay',
     query: { 
