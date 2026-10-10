@@ -1,6 +1,6 @@
 <template>
   <div class="shop-page-container">
-    <!-- 1. 顶部操作栏（返回、搜索、收藏、分享、更多） -->
+    <!-- 1. 顶部操作栏 -->
     <header class="top-nav-bar">
       <div class="nav-icon-btn back-btn" @click="handleBack">
         <van-icon name="arrow-left" size="20" color="#222" />
@@ -10,7 +10,11 @@
           <van-icon name="search" size="20" color="#222" />
         </div>
         <div class="nav-icon-btn" @click="handleFavorite">
-          <van-icon :name="isFav ? 'star' : 'star-o'" size="20" :color="isFav ? '#ff2346' : '#222'" />
+          <van-icon
+            :name="isFav ? 'star' : 'star-o'"
+            size="20"
+            :color="isFav ? '#ff2346' : '#222'"
+          />
         </div>
         <div class="nav-icon-btn" @click="handleShare">
           <van-icon name="share-o" size="20" color="#222" />
@@ -21,26 +25,26 @@
       </div>
     </header>
 
-    <!-- 2. 顶部横排相册轮播/横幅 -->
+    <!-- 2. 顶部横排相册 -->
     <div class="gallery-banner-wrap">
       <div class="gallery-scroll-row">
-        <!-- 宣传横幅 1：11周年店庆 -->
         <div class="banner-card red-theme">
           <div class="anniversary-title">11周年!</div>
-          <div class="anniversary-sub">来和周成芝一起过生日</div>
+          <div class="anniversary-sub">来和我们一起过生日</div>
           <div class="discount-pill">周周有折扣</div>
         </div>
-        <!-- 相册图 2 -->
         <div class="banner-card img-card">
-          <img src="https://img01.yzcdn.cn/vant/apple-1.jpg" class="banner-img" />
-        </div>
-        <!-- 相册图 3 -->
-        <div class="banner-card img-card">
-          <img src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" class="banner-img" />
+          <!-- 👈 加上 cleanUrl 清洗，且给一个必定可访问的高清咖啡/奶茶店保底图 -->
+          <img
+            :src="
+              cleanUrl(shopInfo.images && shopInfo.images[0]) ||
+              'https://images.unsplash.com/photo-1556881286-fc6915169721?w=600'
+            "
+            class="banner-img"
+          />
         </div>
       </div>
 
-      <!-- 右下角相册数量标签 -->
       <div class="album-badge">
         <span>封面</span>
         <span class="split">|</span>
@@ -51,21 +55,20 @@
       </div>
     </div>
 
-    <!-- 3. 店铺核心信息卡片 -->
+    <!-- 3. 店铺核心信息卡片（全部真动态绑定！） -->
     <section class="card shop-meta-card">
-      <!-- 店名与关注按钮 -->
       <div class="shop-name-row">
-        <h1 class="shop-title">周成芝螺蛳粉(财富广场店)</h1>
-        <button 
-          class="follow-btn" 
+        <!-- 👈 动态店铺名：点击谁进店，就显示谁的名字！ -->
+        <h1 class="shop-title">{{ shopInfo.name }}</h1>
+        <button
+          class="follow-btn"
           :class="{ followed: isFollowed }"
           @click="toggleFollow"
         >
-          {{ isFollowed ? '已关注' : '+ 关注' }}
+          {{ isFollowed ? "已关注" : "+ 关注" }}
         </button>
       </div>
 
-      <!-- 评分、人均 -->
       <div class="rating-price-row">
         <div class="rating-left">
           <span class="hearts">❤️❤️❤️❤️❤️</span>
@@ -76,15 +79,14 @@
         <div class="price-type-right">
           <span>¥18/人</span>
           <span class="type-split">|</span>
-          <span>螺蛳粉</span>
+          <span>特色好味</span>
         </div>
       </div>
 
-      <!-- 荣誉勋章标签栏 -->
       <div class="honor-tags-row">
         <div class="honor-tag orange-bg">
           <span class="badge-icon">🎵</span>
-          <span>入围广州市快餐好评榜 &gt;</span>
+          <span>入围同城美食好评榜 &gt;</span>
         </div>
         <div class="honor-tag gold-bg">
           <span class="badge-icon">🏆</span>
@@ -95,11 +97,11 @@
         </div>
       </div>
 
-      <!-- 营业时间 -->
+      <!-- 动态营业时间 -->
       <div class="business-hours-row" @click="handleHoursDetail">
         <div class="hours-left">
           <span class="status-open">营业中</span>
-          <span class="hours-text">10:00-22:00</span>
+          <span class="hours-text">{{ shopInfo.businessHours }}</span>
         </div>
         <div class="detail-link">
           <span>详情</span>
@@ -107,11 +109,11 @@
         </div>
       </div>
 
-      <!-- 地址与导航电话 -->
+      <!-- 动态地址与电话 -->
       <div class="address-nav-row">
         <div class="address-left">
-          <div class="address-text">天河区体育东路118号103-1铺</div>
-          <div class="dist-walk">距你 537米，步行10分钟</div>
+          <div class="address-text">{{ shopInfo.address }}</div>
+          <div class="dist-walk">距你约 500 米，步行可达</div>
         </div>
         <div class="nav-call-actions">
           <div class="circle-action-item" @click="handleNavigation">
@@ -138,43 +140,43 @@
       </div>
     </section>
 
-    <!-- 5. 优惠团购列表 -->
+    <!-- 5. 优惠团购列表（动态遍历这家店名下的 6 件商品，彻底告别电脑和猫！） -->
     <section class="card groupon-list-card">
       <div class="groupon-header">
         <h3 class="sec-title">优惠团购</h3>
         <div class="live-buyer">
-          <img src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" class="buyer-mini-avatar" />
+          <img
+            src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg"
+            class="buyer-mini-avatar"
+          />
           <span>刚刚参与抢购</span>
         </div>
       </div>
 
-      <!-- 商品列表 -->
+      <!-- 循环展示这家店铺从数据库拉出来的真实商品 -->
       <div class="groupon-items">
-        <div 
-          v-for="item in productList" 
-          :key="item.id" 
+        <div
+          v-for="item in productList"
+          :key="item.id"
           class="groupon-item"
-          @click="goToDetail"
+          @click="goToDetail(item)"
         >
-          <!-- 左侧大图 -->
+          <!-- 商品大图 -->
           <div class="item-cover-wrap">
             <img :src="item.image" class="item-img" />
-            <span v-if="item.boughtTag" class="bought-badge">{{ item.boughtTag }}</span>
+            <span class="bought-badge">热销爆款</span>
           </div>
 
           <!-- 右侧信息 -->
           <div class="item-content-col">
             <h4 class="item-title">{{ item.title }}</h4>
 
-            <!-- 规则标签 -->
             <div class="tag-row">
-              <span class="gray-tag">周一至周日可用</span>
               <span class="gray-tag">免预约</span>
               <span class="gray-tag">随时退·过期退</span>
             </div>
 
-            <!-- 销量与价格行 -->
-            <div class="sales-count">已售{{ item.sales }}</div>
+            <div class="sales-count">{{ item.sales }}</div>
 
             <div class="price-buy-bottom">
               <div class="price-discount-wrap">
@@ -183,15 +185,14 @@
                   <span class="price-main">{{ item.price }}</span>
                   <span class="origin-price">¥{{ item.originPrice }}</span>
                 </div>
-                <!-- 补贴标签 -->
                 <div class="subsidy-pill">
-                  <span class="subsidy-text">专享补贴{{ item.subsidy }}</span>
-                  <span class="save-text">共省{{ item.save }}</span>
+                  <span class="subsidy-text">专享补贴</span>
+                  <span class="save-text">超划算</span>
                 </div>
               </div>
 
               <!-- 红色抢购按钮 -->
-              <button class="grab-buy-btn" @click.stop="goToDetail">
+              <button class="grab-buy-btn" @click.stop="goToDetail(item)">
                 抢购
               </button>
             </div>
@@ -203,92 +204,121 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
+// 修改这行引入，加上 cleanUrl
+import { formatPrice, cleanUrl } from "./utils/format";
+import { ref, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { showToast } from "vant";
 
-const router = useRouter()
+import {
+  getShopDetailAPI,
+  getShopProductsAPI,
+  addFavoriteShopAPI,
+  removeFavoriteShopAPI,
+} from "./api/shop";
 
-// 状态
-const isFollowed = ref(false)
-const isFav = ref(false)
+const router = useRouter();
+const route = useRoute();
 
-// 团购商品数据
-const productList = ref([
-  {
-    id: 1,
-    image: 'https://img01.yzcdn.cn/vant/apple-1.jpg',
-    boughtTag: '最近买过',
-    title: '【首次尝鲜】螺蛳粉3件套单人餐',
-    sales: '60万+',
-    price: '14.2',
-    originPrice: '21',
-    subsidy: '1.7元',
-    save: '6.8元'
-  },
-  {
-    id: 2,
-    image: 'https://img01.yzcdn.cn/vant/apple-2.jpg',
-    boughtTag: '最近买过',
-    title: '【解辣解腻】原味螺蛳粉/大片腐竹螺蛳粉...',
-    sales: '20万+',
-    price: '15.1',
-    originPrice: '22',
-    subsidy: '1.8元',
-    save: '6.9元'
-  },
-  {
-    id: 3,
-    image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg',
-    boughtTag: '',
-    title: '【周年庆专属】可口可乐',
-    sales: '4000+',
-    price: '0.99',
-    originPrice: '3',
-    subsidy: '2.01元',
-    save: '2.01元'
-  },
-  {
-    id: 4,
-    image: 'https://img01.yzcdn.cn/vant/custom-empty-image.png',
-    boughtTag: '',
-    title: '【双人餐】招牌螺蛳粉6件套',
-    sales: '10万+',
-    price: '38.9',
-    originPrice: '46',
-    subsidy: '3.1元',
-    save: '7.1元'
+// 1. 核心接收点：读取从详情页传过来的真实 shopId！
+const shopId = ref(route.query.shopId || route.query.id || "1");
+
+const isFollowed = ref(false);
+const isFav = ref(false);
+
+// 店铺详情对象（带初始保底）
+const shopInfo = ref({
+  name: "正在加载店铺...",
+  address: "广州市天河区",
+  businessHours: "10:00-22:00",
+  phone: "020-88888888",
+  images: [],
+});
+
+// 团购商品列表（默认空，由后端接口动态灌入）
+const productList = ref([]);
+
+onMounted(async () => {
+  // A. 查询这间店铺的真实资料（文档 5.3.2）
+  try {
+    const shopData = await getShopDetailAPI(shopId.value);
+    if (shopData) {
+      shopInfo.value = {
+        name: shopData.name, // 👈 动态赋予真店名！
+        address: shopData.address,
+        businessHours: shopData.businessHours || "10:00-22:00",
+        phone: shopData.phone || "020-88888888",
+        // 找到 shopInfo.value = { ... }，修改 images：
+        // 👈 核心修改：优先使用干净的 shopData.images！
+        images:
+          shopData.images && shopData.images.length > 0
+            ? shopData.images.map(cleanUrl)
+            : (shopData.imageUrls || []).map(cleanUrl),
+      };
+    }
+  } catch (err) {
+    console.warn("获取店铺详情失败");
   }
-])
 
-// 1. 返回上一页（保证从哪跳进来的就能退回哪）
+  // B. 查询这家店铺名下专属的 6 件在售商品（文档 5.4.1）
+  try {
+    const products = await getShopProductsAPI(shopId.value);
+    if (products && products.length > 0) {
+      // 👈 把电脑和猫咪彻底换成这家店自己的 6 件商品！
+      productList.value = products.map((item) => ({
+        id: item.id,
+        // 找到 productList.value = products.map(...)，修改 image：
+        image:
+          cleanUrl(item.imageUrl) ||
+          "https://images.unsplash.com/photo-1552611052-33e04de081de?w=600",
+        title: item.name,
+        sales: `已售${item.soldCount || 0}`,
+        price: formatPrice(item.price), // 分转元
+        originPrice: formatPrice(item.price * 1.3),
+      }));
+    }
+  } catch (err) {
+    console.warn("获取店铺商品失败");
+  }
+});
+
+// 返回上一页
 const handleBack = () => {
-  router.back()
-}
+  router.back();
+};
 
-// 2. 点击进入商品详情页
-const goToDetail = () => {
-  router.push('/detail')
-}
+// 点击某个商品，进入该商品的详情页
+const goToDetail = (item) => {
+  router.push({
+    path: "/detail",
+    query: { id: item.id },
+  });
+};
 
-// 关注切换
-const toggleFollow = () => {
-  isFollowed.value = !isFollowed.value
-  showToast(isFollowed.value ? '已成功关注商家' : '已取消关注')
-}
+// 关注操作
+const toggleFollow = async () => {
+  isFollowed.value = !isFollowed.value;
+  showToast(isFollowed.value ? "已成功关注商家" : "已取消关注");
+  try {
+    if (isFollowed.value) {
+      await addFavoriteShopAPI(shopId.value);
+    } else {
+      await removeFavoriteShopAPI(shopId.value);
+    }
+  } catch (e) {}
+};
 
-// 其它交互
-const handleSearch = () => showToast('搜索本店菜品')
+const handleSearch = () => showToast("搜索本店菜品");
 const handleFavorite = () => {
-  isFav.value = !isFav.value
-  showToast(isFav.value ? '已收藏店铺' : '已取消收藏')
-}
-const handleShare = () => showToast('分享店铺页面')
-const handleMore = () => showToast('更多操作')
-const handleHoursDetail = () => showToast('查看营业时段详情')
-const handleNavigation = () => showToast('正在唤起地图导航...')
-const handleCall = () => showToast('正在拨打商家电话')
-const handleAllCoupons = () => showToast('查看本店全部优惠券')
+  isFav.value = !isFav.value;
+  showToast(isFav.value ? "已收藏店铺" : "已取消收藏");
+};
+const handleShare = () => showToast("分享店铺");
+const handleMore = () => showToast("更多操作");
+const handleHoursDetail = () => showToast("查看营业时段");
+const handleNavigation = () => showToast("正在唤起导航...");
+const handleCall = () => showToast(`拨打电话: ${shopInfo.value.phone}`);
+const handleAllCoupons = () => showToast("查看全部优惠券");
 </script>
 
 <style scoped>
@@ -299,7 +329,6 @@ const handleAllCoupons = () => showToast('查看本店全部优惠券')
   box-sizing: border-box;
 }
 
-/* 1. 顶部 Header */
 .top-nav-bar {
   display: flex;
   justify-content: space-between;
@@ -321,7 +350,6 @@ const handleAllCoupons = () => showToast('查看本店全部优惠券')
   gap: 16px;
 }
 
-/* 2. 顶部相册横排 */
 .gallery-banner-wrap {
   position: relative;
   background-color: #fff;
@@ -400,7 +428,6 @@ const handleAllCoupons = () => showToast('查看本店全部优惠券')
   margin-left: 2px;
 }
 
-/* 卡片基类 */
 .card {
   margin: 10px 12px;
   background-color: #fff;
@@ -408,7 +435,6 @@ const handleAllCoupons = () => showToast('查看本店全部优惠券')
   padding: 14px;
 }
 
-/* 3. 店铺核心信息 */
 .shop-name-row {
   display: flex;
   justify-content: space-between;
@@ -572,7 +598,6 @@ const handleAllCoupons = () => showToast('查看本店全部优惠券')
   cursor: pointer;
 }
 
-/* 4. 限时券卡片 */
 .coupon-strip-card {
   padding: 10px 14px;
   display: flex;
@@ -606,7 +631,6 @@ const handleAllCoupons = () => showToast('查看本店全部优惠券')
   gap: 2px;
 }
 
-/* 5. 优惠团购列表 */
 .groupon-header {
   display: flex;
   justify-content: space-between;
@@ -749,7 +773,6 @@ const handleAllCoupons = () => showToast('查看本店全部优惠券')
   padding: 1px 4px;
 }
 
-/* 抢购按钮 */
 .grab-buy-btn {
   background: linear-gradient(135deg, #ff2346, #ff4365);
   color: #fff;

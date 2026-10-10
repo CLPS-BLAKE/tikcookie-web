@@ -19,3 +19,7 @@ export const logoutAPI = () => {
 export const getUserInfoAPI = () => {
   return request.get('/users/me')
 }
+// 5. 修改昵称 / 头像（文档 5.1.5，使用 PUT 请求）
+export const updateUserInfoAPI = (data) => {
+  return request.put('/users/me', data)
+}

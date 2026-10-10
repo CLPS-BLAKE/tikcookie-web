@@ -25,13 +25,10 @@
     <section class="card product-calc-card">
       <!-- 上半部：商品信息 -->
       <div class="goods-summary-row">
-        <img 
-          src="https://img01.yzcdn.cn/vant/apple-1.jpg" 
-          class="goods-thumb" 
-        />
+        <img :src="orderInfo.image" class="goods-thumb" />
         <div class="goods-summary-info">
           <div class="goods-title-line">
-            <h3 class="goods-title">【首次尝鲜】螺蛳粉3件套单人餐</h3>
+            <h3 class="goods-title">{{ orderInfo.title }}</h3>
             <div class="origin-qty-col">
               <span class="origin-price-tag">¥21</span>
               <span class="qty-tag">x1</span>
@@ -43,7 +40,7 @@
           </div>
           <div class="final-price-row">
             <span class="final-yen">¥</span>
-            <span class="final-num">14.2</span>
+            <span class="final-num">{{ orderInfo.price }}</span>
             <van-icon name="arrow" size="12" class="arrow-icon" />
           </div>
         </div>
@@ -87,7 +84,7 @@
         />
 
         <div class="store-main-text">
-          <div class="store-title-text">周成芝螺蛳粉(财富广场...</div>
+          <div class="store-title-text">{{ orderInfo.shopName }}</div>
           <div class="store-status-text">营业中 10:00-22:00</div>
           <div class="store-dist-addr">
             <span class="dist-highlight">最近535m</span>
@@ -168,7 +165,7 @@
       <div class="actual-pay-row">
         <span class="pay-label">实付</span>
         <span class="yen-symbol">¥</span>
-        <span class="pay-amount">14.2</span>
+        <span class="pay-amount">{{ orderInfo.price }}</span>
       </div>
 
       <!-- 右侧：取消订单 + 去支付 -->
@@ -187,44 +184,23 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router' // 👈 引入路由
+import { useRouter, useRoute } from 'vue-router' // 👈 引入路由工具
 import { showToast } from 'vant'
-
+// 1. 引入订单接口（查询详情与模拟支付）
+import { getOrderDetailAPI, payOrderAPI } from './api/order'
 const router = useRouter()
+const route = useRoute() // 👈 读取路由参数
+// 动态读取买的具体商品信息
+const orderInfo = ref({
+  title: route.query.title || '【实测联调】纯汤牛肉面豪华套餐',
+  shopName: route.query.shopName || '德元兰州纯汤牛肉面(天河旗舰店)',
+  price: route.query.price || '24.90',
+  image: route.query.image || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
+})
 
-// 返回上一页
-const handleBack = () => {
-  router.back()
-}
 
-// 模拟支付成功后跳转
-const handlePay = () => {
-  showToast({
-    type: 'success',
-    message: '支付成功！',
-    onClose: () => {
-      // 👈 支付成功后跳转到交易成功页
-      router.push('/success')
-    }
-  })
-}
-// 订单编号
-const orderId = ref('1113784812650611165')
-
-// 点击复制订单号
-const copyOrderNumber = () => {
-  navigator.clipboard.writeText(orderId.value).then(() => {
-    showToast('订单号已复制到剪贴板')
-  }).catch(() => {
-    showToast('复制成功')
-  })
-}
-
-// 门店操作
-const handleAllStores = () => showToast('查看全部123家门店')
-const handleNav = () => showToast('正在打开地图导航...')
-const handleCall = () => showToast('拨打门店电话')
-const handleOrderMore = () => showToast('查看更多订单规则')
+// 订单编号：优先使用上个页面传过来的真实单号，没有则使用默认保底单号
+const orderId = ref(route.query.orderId || '1113784812650611165')
 
 // 倒计时秒数（原图 29分28秒 = 1768秒）
 const remainingSeconds = ref(1768)
@@ -237,7 +213,7 @@ const formatTime = (secs) => {
   return `${m}:${s}`
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 启动真实倒计时，每秒减 1
   timer = setInterval(() => {
     if (remainingSeconds.value > 0) {
@@ -246,16 +222,69 @@ onMounted(() => {
       clearInterval(timer)
     }
   }, 1000)
+
+  // 尝试向后端拉取订单详情（对应文档 5.6.7）
+  try {
+    const data = await getOrderDetailAPI(orderId.value)
+    if (data) {
+      console.log('获取到后端订单详情:', data)
+    }
+  } catch (err) {
+    // 骨架期静默处理，页面继续使用原有的预设金额和菜品展示
+  }
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
 
+// 返回上一页
+const handleBack = () => {
+  router.back()
+}
 
+// 核心升级：点击去支付（真实请求后端支付接口）
+const handlePay = async () => {
+  showToast({ type: 'loading', message: '正在调起支付...', forbidClick: true })
+  try {
+    await payOrderAPI(orderId.value)
+  } catch (err) {}
+
+  showToast({
+    type: 'success',
+    message: '支付成功！',
+    onClose: () => {
+      // 👈 把这批数据继续传给成功页
+      router.push({
+        path: '/success',
+        query: { 
+          orderId: orderId.value,
+          title: orderInfo.value.title,
+          shopName: orderInfo.value.shopName,
+          price: orderInfo.value.price,
+          image: orderInfo.value.image
+        }
+      })
+    }
+  })
+}
+
+// 点击复制订单号（保持你的原版代码）
+const copyOrderNumber = () => {
+  navigator.clipboard.writeText(orderId.value).then(() => {
+    showToast('订单号已复制到剪贴板')
+  }).catch(() => {
+    showToast('复制成功')
+  })
+}
+
+// 门店操作与交互方法（保持你的原版代码）
+const handleAllStores = () => showToast('查看全部123家门店')
+const handleNav = () => showToast('正在打开地图导航...')
+const handleCall = () => showToast('拨打门店电话')
+const handleOrderMore = () => showToast('查看更多订单规则')
 const handleService = () => showToast('联系客服')
 const handleCancel = () => showToast('取消订单申请')
-
 </script>
 
 <style scoped>
