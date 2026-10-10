@@ -81,33 +81,33 @@
 
       <!-- 3. 猜你想搜模块 -->
       <!-- 3. 猜你想搜模块（精准展示 12 个，支持换一换与直达跳转） -->
-    <section class="guess-section">
-      <div class="section-title-row">
-        <span class="section-title">猜你想搜</span>
-        <div class="refresh-btn" @click="handleRefreshGuess">
-          <van-icon name="replay" size="14" />
-          <span>换一换</span>
+      <section class="guess-section">
+        <div class="section-title-row">
+          <span class="section-title">猜你想搜</span>
+          <div class="refresh-btn" @click="handleRefreshGuess">
+            <van-icon name="replay" size="14" />
+            <span>换一换</span>
+          </div>
         </div>
-      </div>
 
-      <!-- 双列 12 项网格（两列六行，正好12个） -->
-      <div class="guess-grid">
-        <div 
-          v-for="(item, index) in displayedGuesses" 
-          :key="index" 
-          class="guess-item"
-          @click="handleGuessClick(item)"
-        >
-          <!-- 文字部分 -->
-          <span class="guess-text">{{ item.name }}</span>
+        <!-- 双列 12 项网格（两列六行，正好12个） -->
+        <div class="guess-grid">
+          <div
+            v-for="(item, index) in displayedGuesses"
+            :key="index"
+            class="guess-item"
+            @click="handleGuessClick(item)"
+          >
+            <!-- 文字部分 -->
+            <span class="guess-text">{{ item.name }}</span>
 
-          <!-- 标记：店铺打“店”标，热门打“热”标 -->
-          <span v-if="item.type === 'shop'" class="shop-badge">店</span>
-          <span v-else-if="item.isHot" class="hot-badge">热</span>
+            <!-- 标记：店铺打“店”标，热门打“热”标 -->
+            <span v-if="item.type === 'shop'" class="shop-badge">店</span>
+            <span v-else-if="item.isHot" class="hot-badge">热</span>
+          </div>
         </div>
-      </div>
-    </section>
-</template>
+      </section>
+    </template>
 
     <!-- 4. 底部语音搜索药丸按钮 -->
     <div class="voice-search-wrap">
@@ -120,6 +120,8 @@
 </template>
 
 <script setup>
+// 引入 cleanUrl 图片清洗函数
+import { cleanUrl } from "./utils/format";
 import { ref, computed, onMounted } from "vue"; // 👈 引入 computed 计算属性
 import { useRouter, useRoute } from "vue-router";
 import { showToast, showConfirmDialog } from "vant";
@@ -277,8 +279,9 @@ const handleSearch = async (word) => {
         shopName: item.shopName,
         price: (item.price / 100).toFixed(2),
         soldCount: item.soldCount || 0,
+        // 👈 套上 cleanUrl 自动剥离重复前缀
         image:
-          item.imageUrl ||
+          cleanUrl(item.imageUrl) ||
           "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600",
       }));
       hasSearched.value = true;

@@ -273,13 +273,14 @@
 </template>
 
 <script setup>
+// 修改为同时引入 formatPrice 和 cleanUrl：
+import { formatPrice, cleanUrl } from "./utils/format";
 import { getFavoriteListAPI } from "./api/favorite";
 import { ref, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { showToast } from "vant";
 import { getUserInfoAPI } from "./api/user";
 import { getMyOrdersAPI } from "./api/order";
-import { formatPrice } from "./utils/format";
 
 const router = useRouter();
 const route = useRoute();
@@ -412,8 +413,9 @@ const fetchOrders = async () => {
           title: item.productName,
           shopName: item.shopName,
           price: formatPrice(item.amount),
+          // 👈 核心：用 cleanUrl 清洗掉重复的 OSS 域名！
           image:
-            item.productImageUrl ||
+            cleanUrl(item.productImageUrl) ||
             "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600",
           status: item.status,
           isReviewed: isReviewed, // 标记是否已评价

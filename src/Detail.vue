@@ -196,6 +196,8 @@
 </template>
 
 <script setup>
+// 修改这行引入，加上 cleanUrl
+import { formatPrice, cleanUrl } from './utils/format'
 // 在 Detail.vue 顶部引入抢购下单接口：
 import { createOrderAPI, createFlashOrderAPI } from './api/order'
 import { addFavoriteAPI, removeFavoriteAPI, getFavoriteStatusAPI } from './api/favorite'
@@ -205,7 +207,7 @@ import { showToast } from 'vant'
 
 import { getProductDetailAPI } from './api/goods'
 
-import { formatPrice } from './utils/format'
+
 // 收藏状态
 const isFavorited = ref(false)
 const router = useRouter()
@@ -246,7 +248,8 @@ onMounted(async () => {
         shopName: data.shopName || '正宗特色好店',
         shopAddress: data.shopAddress || '天河区体育东路118号',
         sales: `已售${data.soldCount || 0}`,
-        image: data.imageUrl || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600',
+        // 👈 加上 cleanUrl 过滤
+  image: cleanUrl(data.imageUrl) || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600',
         contents: typeof data.contents === 'string' ? JSON.parse(data.contents) : (data.contents || []),
         useRules: typeof data.useRules === 'string' ? JSON.parse(data.useRules) : (data.useRules || [])
       }

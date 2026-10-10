@@ -108,11 +108,13 @@
 </template>
 
 <script setup>
+// 确保同时引入了 formatPrice 和 cleanUrl：
+import { formatPrice, cleanUrl } from './utils/format'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { getFavoriteListAPI } from './api/favorite'
-import { formatPrice } from './utils/format'
+
 
 const router = useRouter()
 
@@ -137,7 +139,10 @@ onMounted(async () => {
 const loadMyFavorites = async () => {
   // 1. 先读取本地真实收藏缓存（双保险）
   const localFavs = JSON.parse(localStorage.getItem('my_favorites') || '[]')
-  allFavorites.value = localFavs
+  allFavorites.value = localFavs.map(item => ({
+    ...item,
+    image: cleanUrl(item.image) // 👈 洗净本地旧图片
+  }))
 
   // 2. 尝试向后端拉取真实数据库收藏（文档 5.7.3）
   try {
@@ -148,7 +153,8 @@ const loadMyFavorites = async () => {
         targetType: item.targetType || 'PRODUCT',
         targetId: item.targetId,
         name: item.name,
-        image: item.imageUrl || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600',
+        // 👈 洗净后端发来的图片
+        image: cleanUrl(item.imageUrl) || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600',
         shopName: '特惠好店',
         price: item.price ? formatPrice(item.price) : '24.90',
         originPrice: item.price ? formatPrice(item.price * 1.3) : '33.00',

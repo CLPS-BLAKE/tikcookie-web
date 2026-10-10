@@ -10,7 +10,11 @@
           <van-icon name="search" size="20" color="#222" />
         </div>
         <div class="nav-icon-btn" @click="handleFavorite">
-          <van-icon :name="isFav ? 'star' : 'star-o'" size="20" :color="isFav ? '#ff2346' : '#222'" />
+          <van-icon
+            :name="isFav ? 'star' : 'star-o'"
+            size="20"
+            :color="isFav ? '#ff2346' : '#222'"
+          />
         </div>
         <div class="nav-icon-btn" @click="handleShare">
           <van-icon name="share-o" size="20" color="#222" />
@@ -30,7 +34,14 @@
           <div class="discount-pill">周周有折扣</div>
         </div>
         <div class="banner-card img-card">
-          <img :src="shopInfo.images[0] || 'https://images.unsplash.com/photo-1552611052-33e04de081de?w=600'" class="banner-img" />
+          <!-- 👈 加上 cleanUrl 清洗，且给一个必定可访问的高清咖啡/奶茶店保底图 -->
+          <img
+            :src="
+              cleanUrl(shopInfo.images && shopInfo.images[0]) ||
+              'https://images.unsplash.com/photo-1556881286-fc6915169721?w=600'
+            "
+            class="banner-img"
+          />
         </div>
       </div>
 
@@ -49,12 +60,12 @@
       <div class="shop-name-row">
         <!-- 👈 动态店铺名：点击谁进店，就显示谁的名字！ -->
         <h1 class="shop-title">{{ shopInfo.name }}</h1>
-        <button 
-          class="follow-btn" 
+        <button
+          class="follow-btn"
           :class="{ followed: isFollowed }"
           @click="toggleFollow"
         >
-          {{ isFollowed ? '已关注' : '+ 关注' }}
+          {{ isFollowed ? "已关注" : "+ 关注" }}
         </button>
       </div>
 
@@ -134,16 +145,19 @@
       <div class="groupon-header">
         <h3 class="sec-title">优惠团购</h3>
         <div class="live-buyer">
-          <img src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" class="buyer-mini-avatar" />
+          <img
+            src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg"
+            class="buyer-mini-avatar"
+          />
           <span>刚刚参与抢购</span>
         </div>
       </div>
 
       <!-- 循环展示这家店铺从数据库拉出来的真实商品 -->
       <div class="groupon-items">
-        <div 
-          v-for="item in productList" 
-          :key="item.id" 
+        <div
+          v-for="item in productList"
+          :key="item.id"
           class="groupon-item"
           @click="goToDetail(item)"
         >
@@ -190,112 +204,121 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { showToast } from 'vant'
+// 修改这行引入，加上 cleanUrl
+import { formatPrice, cleanUrl } from "./utils/format";
+import { ref, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { showToast } from "vant";
 
-import { 
-  getShopDetailAPI, 
-  getShopProductsAPI, 
-  addFavoriteShopAPI, 
-  removeFavoriteShopAPI 
-} from './api/shop'
-import { formatPrice } from './utils/format'
+import {
+  getShopDetailAPI,
+  getShopProductsAPI,
+  addFavoriteShopAPI,
+  removeFavoriteShopAPI,
+} from "./api/shop";
 
-const router = useRouter()
-const route = useRoute()
+const router = useRouter();
+const route = useRoute();
 
 // 1. 核心接收点：读取从详情页传过来的真实 shopId！
-const shopId = ref(route.query.shopId || route.query.id || '1')
+const shopId = ref(route.query.shopId || route.query.id || "1");
 
-const isFollowed = ref(false)
-const isFav = ref(false)
+const isFollowed = ref(false);
+const isFav = ref(false);
 
 // 店铺详情对象（带初始保底）
 const shopInfo = ref({
-  name: '正在加载店铺...',
-  address: '广州市天河区',
-  businessHours: '10:00-22:00',
-  phone: '020-88888888',
-  images: []
-})
+  name: "正在加载店铺...",
+  address: "广州市天河区",
+  businessHours: "10:00-22:00",
+  phone: "020-88888888",
+  images: [],
+});
 
 // 团购商品列表（默认空，由后端接口动态灌入）
-const productList = ref([])
+const productList = ref([]);
 
 onMounted(async () => {
   // A. 查询这间店铺的真实资料（文档 5.3.2）
   try {
-    const shopData = await getShopDetailAPI(shopId.value)
+    const shopData = await getShopDetailAPI(shopId.value);
     if (shopData) {
       shopInfo.value = {
         name: shopData.name, // 👈 动态赋予真店名！
         address: shopData.address,
-        businessHours: shopData.businessHours || '10:00-22:00',
-        phone: shopData.phone || '020-88888888',
-        images: shopData.imageUrls || []
-      }
+        businessHours: shopData.businessHours || "10:00-22:00",
+        phone: shopData.phone || "020-88888888",
+        // 找到 shopInfo.value = { ... }，修改 images：
+        // 👈 核心修改：优先使用干净的 shopData.images！
+        images:
+          shopData.images && shopData.images.length > 0
+            ? shopData.images.map(cleanUrl)
+            : (shopData.imageUrls || []).map(cleanUrl),
+      };
     }
   } catch (err) {
-    console.warn('获取店铺详情失败')
+    console.warn("获取店铺详情失败");
   }
 
   // B. 查询这家店铺名下专属的 6 件在售商品（文档 5.4.1）
   try {
-    const products = await getShopProductsAPI(shopId.value)
+    const products = await getShopProductsAPI(shopId.value);
     if (products && products.length > 0) {
       // 👈 把电脑和猫咪彻底换成这家店自己的 6 件商品！
-      productList.value = products.map(item => ({
+      productList.value = products.map((item) => ({
         id: item.id,
-        image: item.imageUrl || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600',
+        // 找到 productList.value = products.map(...)，修改 image：
+        image:
+          cleanUrl(item.imageUrl) ||
+          "https://images.unsplash.com/photo-1552611052-33e04de081de?w=600",
         title: item.name,
         sales: `已售${item.soldCount || 0}`,
         price: formatPrice(item.price), // 分转元
-        originPrice: formatPrice(item.price * 1.3)
-      }))
+        originPrice: formatPrice(item.price * 1.3),
+      }));
     }
   } catch (err) {
-    console.warn('获取店铺商品失败')
+    console.warn("获取店铺商品失败");
   }
-})
+});
 
 // 返回上一页
 const handleBack = () => {
-  router.back()
-}
+  router.back();
+};
 
 // 点击某个商品，进入该商品的详情页
 const goToDetail = (item) => {
   router.push({
-    path: '/detail',
-    query: { id: item.id }
-  })
-}
+    path: "/detail",
+    query: { id: item.id },
+  });
+};
 
 // 关注操作
 const toggleFollow = async () => {
-  isFollowed.value = !isFollowed.value
-  showToast(isFollowed.value ? '已成功关注商家' : '已取消关注')
+  isFollowed.value = !isFollowed.value;
+  showToast(isFollowed.value ? "已成功关注商家" : "已取消关注");
   try {
     if (isFollowed.value) {
-      await addFavoriteShopAPI(shopId.value)
+      await addFavoriteShopAPI(shopId.value);
     } else {
-      await removeFavoriteShopAPI(shopId.value)
+      await removeFavoriteShopAPI(shopId.value);
     }
   } catch (e) {}
-}
+};
 
-const handleSearch = () => showToast('搜索本店菜品')
+const handleSearch = () => showToast("搜索本店菜品");
 const handleFavorite = () => {
-  isFav.value = !isFav.value
-  showToast(isFav.value ? '已收藏店铺' : '已取消收藏')
-}
-const handleShare = () => showToast('分享店铺')
-const handleMore = () => showToast('更多操作')
-const handleHoursDetail = () => showToast('查看营业时段')
-const handleNavigation = () => showToast('正在唤起导航...')
-const handleCall = () => showToast(`拨打电话: ${shopInfo.value.phone}`)
-const handleAllCoupons = () => showToast('查看全部优惠券')
+  isFav.value = !isFav.value;
+  showToast(isFav.value ? "已收藏店铺" : "已取消收藏");
+};
+const handleShare = () => showToast("分享店铺");
+const handleMore = () => showToast("更多操作");
+const handleHoursDetail = () => showToast("查看营业时段");
+const handleNavigation = () => showToast("正在唤起导航...");
+const handleCall = () => showToast(`拨打电话: ${shopInfo.value.phone}`);
+const handleAllCoupons = () => showToast("查看全部优惠券");
 </script>
 
 <style scoped>

@@ -303,6 +303,14 @@ const tabs = ref([
   "超市便利",
 ]);
 
+// 👈 核心清洗函数：解决 OSS 域名重复拼接两遍的 Bug
+const cleanUrl = (url) => {
+  if (!url) return 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
+  // 找到最后一个真实的 "http"，把前面多余重复拼接的域名直接切掉！
+  const lastHttpIndex = url.lastIndexOf('http')
+  return lastHttpIndex >= 0 ? url.substring(lastHttpIndex) : url
+}
+
 // 你的原版商品数据（作为核心保底）
 const goodsList = ref([
   {
@@ -357,7 +365,8 @@ onMounted(async () => {
   } catch (err) {
     // 连不上后端时静默处理，保留原有的默认分类
   }
-  // 👈 核心：真实获取抢购秒杀商品（文档 5.4.4）
+
+  // B. 真实获取抢购秒杀商品（文档 5.4.4）
   try {
     const flashData = await getFlashProductsAPI()
     if (flashData && flashData.length > 0) {
@@ -366,30 +375,30 @@ onMounted(async () => {
         name: item.name,
         shopName: item.shopName,
         price: formatPrice(item.price),
-        image: item.imageUrl || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600',
+        // 👈 使用 cleanUrl 清洗秒杀商品图
+        image: cleanUrl(item.imageUrl),
         stock: item.remainingStock || 10
       }))
     }
   } catch (err) {
-    // 保底：给一个默认数组，防止空指针
     flashList.value = [
       { id: '2', name: '早餐随心配 (咖啡等)', shopName: '肯悦咖啡', price: '11.00', stock: 10, image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600' },
       { id: '3', name: '3份元气早餐两件套', shopName: '肯德基', price: '29.40', stock: 10, image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600' }
     ]
   }
-  // B. 获取真实商品流（对应文档 5.4.3）
+
+  // C. 获取真实商品流（对应文档 5.4.3）
   try {
     const res = await getProductsAPI({ page: 1, size: 10, sort: "latest" });
     if (res && res.list && res.list.length > 0) {
-      // 成功获取到真实数据时，将后端的分转成元并替换列表
       goodsList.value = res.list.map((item) => ({
         id: item.id,
-        image:
-          item.imageUrl || "https://img01.yzcdn.cn/vant/custom-empty-image.png",
+        // 👈 核心修改：使用 cleanUrl 自动清洗重复的 OSS 前缀！
+        image: cleanUrl(item.imageUrl),
         imgTag: item.type === "FLASH" ? "限时抢购" : "特惠团购",
         brand: item.shopName,
         title: item.name,
-        price: formatPrice(item.price), // 统一分转元
+        price: formatPrice(item.price),
         originPrice: formatPrice(item.price * 1.3),
         sales: `已售${item.soldCount || 0}`,
         store: item.shopName,
@@ -398,19 +407,11 @@ onMounted(async () => {
       }));
     }
   } catch (err) {
-    // 连不上后端时静默处理，直接继续使用上面写好的3个默认商品
+    // 连不上后端时静默处理
   }
-  // 👈 改造点击秒杀商品的跳转
-const goToFlashDetail = (flashItem) => {
-  router.push({
-    path: '/detail',
-    query: {
-      id: flashItem.id || '2',
-      type: 'FLASH' // 👈 标记为抢购商品！
-    }
-  })
-}
 });
+
+
 </script>
 
 <style scoped>
