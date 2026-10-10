@@ -46,6 +46,12 @@
 
       <div class="card-dashed-line"></div>
 
+      <!-- 🌟 12 位真实券码专属展示栏（4-4-4 格式） -->
+      <div class="voucher-code-bar">
+        <span class="voucher-label">券码</span>
+        <span class="voucher-num">{{ formattedVoucherCode }}</span>
+      </div>
+
       <!-- 两种核销方式 -->
       <div class="methods-wrap">
         <!-- 方式 1 -->
@@ -147,11 +153,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router' // 👈 引入路由
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
-// 1. 引入核销与退款接口（对应文档 5.6.8 与 5.6.5）
-import { useOrderAPI, refundOrderAPI } from './api/order'
+// 🌟 引入 5.6.7 查询详情、5.6.8 核销 与 5.6.5 退款接口
+import { useOrderAPI, refundOrderAPI, getOrderDetailAPI } from './api/order'
 
 const router = useRouter()
 const route = useRoute()
@@ -159,10 +165,53 @@ const route = useRoute()
 // 接取上个页面传来的订单号（带保底单号）
 const orderId = ref(route.query.orderId || '1113784812650611165')
 
-// 是否展开菜单明细（保持你的原代码）
+// 真实 12 位券码：优先使用路由 query，查询成功后由数据库覆盖
+const rawVoucherCode = ref(route.query.voucherCode || '938668165994')
+
+// 格式化为 4-4-4 格式（例如：9386 6816 5994）
+const formattedVoucherCode = computed(() => {
+  if (!rawVoucherCode.value) return ''
+  return String(rawVoucherCode.value).replace(/(\d{4})(?=\d)/g, '$1 ')
+})
+
+const orderInfo = ref({
+  title: route.query.title || '【实测联调】纯汤牛肉面豪华套餐',
+  shopName: route.query.shopName || '德元兰州纯汤牛肉面(天河旗舰店)',
+  price: route.query.price || '24.90',
+  image: route.query.image || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
+})
+
+// 🌟 进入页面自动从数据库获取真实订单数据与券码
+onMounted(async () => {
+  if (!orderId.value) return
+  try {
+    const res = await getOrderDetailAPI(orderId.value)
+    // 兼容拦截器直接返回 data 或包装层
+    const detail = res?.data?.data || res?.data || res
+
+    if (detail && detail.voucherCode) {
+      rawVoucherCode.value = detail.voucherCode // 👈 数据库里的真实 12 位券码
+    }
+    if (detail && detail.productName) {
+      orderInfo.value.title = detail.productName
+    }
+    if (detail && detail.shopName) {
+      orderInfo.value.shopName = detail.shopName
+    }
+    if (detail && detail.amount) {
+      orderInfo.value.price = (detail.amount / 100).toFixed(2) // 分转元
+    }
+    if (detail && detail.productImageUrl) {
+      orderInfo.value.image = detail.productImageUrl
+    }
+  } catch (err) {
+    console.warn('获取数据库真实订单详情失败，使用上一页参数或兜底数据', err)
+  }
+})
+
+// 是否展开菜单明细
 const isExpanded = ref(false)
 
-// 饮品 10 选 1 数据（保持你的原代码）
 const drinkList = ref([
   { name: '小黄油美式' },
   { name: '经典泰奶' },
@@ -176,20 +225,11 @@ const drinkList = ref([
   { name: '生椰拿铁' }
 ])
 
-// 真实返回上一页
 const handleBack = () => {
   router.back()
 }
-const orderInfo = ref({
-  title: route.query.title || '【实测联调】纯汤牛肉面豪华套餐',
-  shopName: route.query.shopName || '德元兰州纯汤牛肉面(天河旗舰店)',
-  price: route.query.price || '24.90',
-  image: route.query.image || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
-})
 
-// 核心功能 1：在线点单 / 去使用（真实调用核销接口 5.6.8）
-// 在 daishiyonjiemian.vue 里：
-// 在 daishiyonjiemian.vue 里的 handleOrderOnline：
+// 核心功能 1：在线点单 / 去使用
 const handleOrderOnline = async () => {
   showToast({ type: 'loading', message: '正在完成核销...', forbidClick: true })
   try {
@@ -198,9 +238,10 @@ const handleOrderOnline = async () => {
 
   showToast({
     type: 'success',
-    message: '团购券核销成功！',
+    className: 'voucher-toast', // 对应底部自定义类
+    message: `团购券核销成功！\n券码: ${formattedVoucherCode.value}`,
+    duration: 2000,
     onClose: () => {
-      // 👈 带上 tab=4 和该商品的名称店名去个人中心
       router.push({
         path: '/user',
         query: { 
@@ -216,7 +257,7 @@ const handleOrderOnline = async () => {
   })
 }
 
-// 核心功能 2：申请退款（真实调用退款接口 5.6.5）
+// 核心功能 2：申请退款
 const handleRefund = () => {
   showConfirmDialog({
     title: '申请退款',
@@ -225,7 +266,6 @@ const handleRefund = () => {
     showToast({ type: 'loading', message: '正在提交退款...', forbidClick: true })
 
     try {
-      // 真实调接口：申请退款
       await refundOrderAPI(orderId.value)
       console.log('真实退款接口调用成功')
       showToast({ type: 'success', message: '退款成功，款项已原路退回！' })
@@ -236,7 +276,7 @@ const handleRefund = () => {
   }).catch(() => {})
 }
 
-// 保持你原本的其他交互方法
+// 其他交互方法
 const handleService = () => showToast('联系客服')
 const handleSelfService = () => showToast('查看自助核销二维码步骤')
 const handleAllStores = () => showToast('查看全国 33953 家适用门店')
@@ -376,6 +416,30 @@ const handleOrderAgain = () => showToast('已再次加入待支付订单')
 .card-dashed-line {
   border-bottom: 1px dashed #e8e8e8;
   margin: 14px 0;
+}
+
+/* 🌟 券码专属展示栏样式 */
+.voucher-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fbfbfc;
+  border: 1px dashed #e2e4ea;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+.voucher-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+.voucher-num {
+  font-size: 18px;
+  font-weight: 800;
+  color: #111;
+  letter-spacing: 1.5px;
+  font-family: 'DIN Alternate', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* 核销方式 1 & 2 */
@@ -598,5 +662,27 @@ const handleOrderAgain = () => showToast('已再次加入待支付订单')
   border: none;
   color: #fff;
   box-shadow: 0 3px 8px rgba(255, 35, 70, 0.25);
+}
+</style>
+
+<!-- 🌟 必须写在最后面、且绝对不能加 scoped 的样式 -->
+<style>
+.van-toast.voucher-toast {
+  --van-toast-default-width: 240px !important;
+  --van-toast-default-min-height: auto !important;
+  width: 240px !important;
+  min-width: 240px !important;
+  max-width: 90vw !important;
+  padding: 16px 20px !important;
+  box-sizing: border-box !important;
+}
+
+.van-toast.voucher-toast .van-toast__text {
+  white-space: pre-line !important;
+  word-break: keep-all !important; /* 禁止任何词内截断换行 */
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  margin-top: 8px !important;
+  text-align: center !important;
 }
 </style>
