@@ -323,42 +323,40 @@ const goToShop = () => {
 // 5. 下单购买
 // 升级 goToPay：把当前商品的真实信息全部作为参数带给收银台
 // 改造 goToPay 方法：
+// 在 Detail.vue 的 goToPay 方法中修改为：
 const goToPay = async () => {
-  showToast({ type: 'loading', message: '正在争抢库存...', forbidClick: true })
-  let targetOrderId = '1'
+  showToast({ type: 'loading', message: '正在创建订单...', forbidClick: true })
 
-  // 判断是否是秒杀商品
   const isFlash = route.query.type === 'FLASH'
 
   try {
     let res = null
     if (isFlash) {
-      // 👈 核心分流：调用后端专用的抢购下单接口（文档 5.6.2）
       console.log('触发秒杀抢购专用下单通道...')
       res = await createFlashOrderAPI(productId.value)
     } else {
-      // 普通商品下单接口（文档 5.6.1）
       res = await createOrderAPI(productId.value)
     }
 
+    // 👈 核心：后端成功生成了真实订单号才跳转！
     if (res && res.orderId) {
-      targetOrderId = res.orderId
+      router.push({
+        path: '/pay',
+        query: { 
+          orderId: res.orderId, // 真实单号
+          title: productInfo.value.name,
+          shopName: productInfo.value.shopName,
+          price: productInfo.value.price,
+          image: productInfo.value.image
+        }
+      })
+    } else {
+      showToast('创建订单失败，请重试')
     }
   } catch (err) {
-    console.warn('后端下单保底放行')
+    // 报错信息已由 request.js 自动弹出真实原因（如：不是抢购商品、已抢光等）
+    console.warn('下单失败:', err.message)
   }
-
-  // 带着订单号跳去收银台
-  router.push({
-    path: '/pay',
-    query: { 
-      orderId: targetOrderId,
-      title: productInfo.value.name,
-      shopName: productInfo.value.shopName,
-      price: productInfo.value.price,
-      image: productInfo.value.image
-    }
-  })
 }
 </script>
 

@@ -10,10 +10,10 @@
       <!-- 顶部搜索栏改造 -->
       <div class="search-input-wrap">
         <van-icon name="scan" class="scan-icon" @click="goToSearch" />
-        <input 
-          v-model="homeSearchKey" 
-          type="text" 
-          placeholder="汉堡王" 
+        <input
+          v-model="homeSearchKey"
+          type="text"
+          placeholder="汉堡王"
           class="search-input"
           @keyup.enter="handleHomeSearch"
           @click.stop
@@ -36,32 +36,24 @@
 
       <!-- 动态展示 2 款抢购商品 -->
       <div class="brand-goods-row">
-        <!-- 第 1 款秒杀 -->
-        <div class="brand-card" @click="goToFlashDetail(flashList[0] || { id: '2' })">
-          <div class="brand-name-row">
-            <span class="brand-mini-logo red-bg">秒</span>
-            <span class="brand-name">{{ flashList[0]?.shopName || '肯悦咖啡' }}</span>
-          </div>
-          <div class="brand-product-flex">
-            <img :src="flashList[0]?.image || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600'" class="brand-goods-img" />
-            <div class="brand-goods-info">
-              <div class="brand-goods-title">{{ flashList[0]?.name || '早餐随心配 (咖啡等)' }}</div>
-              <div class="brand-goods-price">¥{{ flashList[0]?.price || '11.00' }}</div>
+        <!-- 动态展示：只渲染真正符合秒杀条件的真实商品！ -->
+        <div v-if="flashList && flashList.length > 0" class="brand-goods-row">
+          <div
+            v-for="item in flashList"
+            :key="item.id"
+            class="brand-card"
+            @click="goToFlashDetail(item)"
+          >
+            <div class="brand-name-row">
+              <span class="brand-mini-logo red-bg">秒</span>
+              <span class="brand-name">{{ item.shopName }}</span>
             </div>
-          </div>
-        </div>
-
-        <!-- 第 2 款秒杀 -->
-        <div class="brand-card" @click="goToFlashDetail(flashList[1] || { id: '3' })">
-          <div class="brand-name-row">
-            <span class="brand-mini-logo kfc-logo">抢</span>
-            <span class="brand-name">{{ flashList[1]?.shopName || '肯德基' }}</span>
-          </div>
-          <div class="brand-product-flex">
-            <img :src="flashList[1]?.image || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600'" class="brand-goods-img" />
-            <div class="brand-goods-info">
-              <div class="brand-goods-title">{{ flashList[1]?.name || '3份元气早餐两件套' }}</div>
-              <div class="brand-goods-price">¥{{ flashList[1]?.price || '29.40' }}</div>
+            <div class="brand-product-flex">
+              <img :src="item.image" class="brand-goods-img" />
+              <div class="brand-goods-info">
+                <div class="brand-goods-title">{{ item.name }}</div>
+                <div class="brand-goods-price">¥{{ item.price }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -234,8 +226,11 @@
 
 <script setup>
 // 1. 引入商品接口（包含 getFlashProductsAPI）
-import { getCategoriesAPI, getFlashProductsAPI, getProductsAPI } from './api/goods'
-
+import {
+  getCategoriesAPI,
+  getFlashProductsAPI,
+  getProductsAPI,
+} from "./api/goods";
 
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
@@ -243,51 +238,51 @@ import { useRouter } from "vue-router";
 
 import { formatPrice } from "./utils/format";
 // 在 Home.vue 的 <script setup> 里添加：
-const homeSearchKey = ref('')
+const homeSearchKey = ref("");
 // 👈 核心：必须声明这个 flashList 响应式空数组！
-const flashList = ref([])
+const flashList = ref([]);
 // 点击“搜低价”或在搜索框按回车
 const handleHomeSearch = () => {
-  const target = homeSearchKey.value.trim() || '汉堡王'
+  const target = homeSearchKey.value.trim() || "汉堡王";
   router.push({
-    path: '/search',
-    query: { keyword: target } // 👈 核心：把关键词作为参数传给搜索页！
-  })
-}
+    path: "/search",
+    query: { keyword: target }, // 👈 核心：把关键词作为参数传给搜索页！
+  });
+};
 
 // 纯点扫码图标进入搜索中心
 const goToSearch = () => {
-  router.push('/search')
-}
+  router.push("/search");
+};
 const router = useRouter();
-
 
 // 智能详情页跳转：兼容带参数和不带参数
 // 升级版：精准提取商品 ID
 const goToDetail = (item) => {
   // 如果点的是真正的商品对象，取它真实的 id；否则才保底用 '1'
-  const targetId = (item && item.id && typeof item.id !== 'object') ? item.id : (item?.id || '1')
-  
-  console.log('正在跳转商品，目标 ID 是:', targetId) // 可以在控制台看打印出的真实 ID
+  const targetId =
+    item && item.id && typeof item.id !== "object" ? item.id : item?.id || "1";
+
+  console.log("正在跳转商品，目标 ID 是:", targetId); // 可以在控制台看打印出的真实 ID
 
   router.push({
-    path: '/detail',
-    query: { id: targetId }
-  })
-}
+    path: "/detail",
+    query: { id: targetId },
+  });
+};
 // 👈 补上这个秒杀跳转函数：
 const goToFlashDetail = (flashItem) => {
-  const targetId = flashItem?.id || '2'
-  console.log('正在跳转秒杀商品，ID为:', targetId)
-  
+  const targetId = flashItem?.id || "2";
+  console.log("正在跳转秒杀商品，ID为:", targetId);
+
   router.push({
-    path: '/detail',
+    path: "/detail",
     query: {
       id: targetId,
-      type: 'FLASH' // 👈 标记为抢购秒杀商品，通知详情页走抢购下单接口！
-    }
-  })
-}
+      type: "FLASH", // 👈 标记为抢购秒杀商品，通知详情页走抢购下单接口！
+    },
+  });
+};
 const goToUser = () => {
   router.push("/user");
 };
@@ -305,11 +300,12 @@ const tabs = ref([
 
 // 👈 核心清洗函数：解决 OSS 域名重复拼接两遍的 Bug
 const cleanUrl = (url) => {
-  if (!url) return 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
+  if (!url)
+    return "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600";
   // 找到最后一个真实的 "http"，把前面多余重复拼接的域名直接切掉！
-  const lastHttpIndex = url.lastIndexOf('http')
-  return lastHttpIndex >= 0 ? url.substring(lastHttpIndex) : url
-}
+  const lastHttpIndex = url.lastIndexOf("http");
+  return lastHttpIndex >= 0 ? url.substring(lastHttpIndex) : url;
+};
 
 // 你的原版商品数据（作为核心保底）
 const goodsList = ref([
@@ -368,23 +364,39 @@ onMounted(async () => {
 
   // B. 真实获取抢购秒杀商品（文档 5.4.4）
   try {
-    const flashData = await getFlashProductsAPI()
+    const flashData = await getFlashProductsAPI();
     if (flashData && flashData.length > 0) {
-      flashList.value = flashData.map(item => ({
+      flashList.value = flashData.map((item) => ({
         id: item.id,
         name: item.name,
         shopName: item.shopName,
         price: formatPrice(item.price),
         // 👈 使用 cleanUrl 清洗秒杀商品图
         image: cleanUrl(item.imageUrl),
-        stock: item.remainingStock || 10
-      }))
+        stock: item.remainingStock || 10,
+      }));
     }
   } catch (err) {
     flashList.value = [
-      { id: '2', name: '早餐随心配 (咖啡等)', shopName: '肯悦咖啡', price: '11.00', stock: 10, image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600' },
-      { id: '3', name: '3份元气早餐两件套', shopName: '肯德基', price: '29.40', stock: 10, image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600' }
-    ]
+      {
+        id: "2",
+        name: "早餐随心配 (咖啡等)",
+        shopName: "肯悦咖啡",
+        price: "11.00",
+        stock: 10,
+        image:
+          "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600",
+      },
+      {
+        id: "3",
+        name: "3份元气早餐两件套",
+        shopName: "肯德基",
+        price: "29.40",
+        stock: 10,
+        image:
+          "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600",
+      },
+    ];
   }
 
   // C. 获取真实商品流（对应文档 5.4.3）
@@ -410,8 +422,6 @@ onMounted(async () => {
     // 连不上后端时静默处理
   }
 });
-
-
 </script>
 
 <style scoped>
@@ -512,16 +522,25 @@ onMounted(async () => {
   padding: 2px 8px;
   border-radius: 12px;
 }
+/* 秒杀商品排版：支持左右横向滑动浏览 10 个爆款 */
 .brand-goods-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;         /* 👈 改为 flex 横排 */
   gap: 8px;
+  overflow-x: auto;      /* 👈 开启横向顺滑滑动 */
+  padding-bottom: 2px;
 }
+.brand-goods-row::-webkit-scrollbar {
+  display: none;         /* 隐藏丑陋的滚动条 */
+}
+/* 每个秒杀小卡片固定宽度，防止被挤压 */
 .brand-card {
+  width: 170px;          /* 👈 固定卡片宽度 */
+  flex-shrink: 0;        /* 👈 关键：禁止被压缩 */
   background-color: #fff;
   border-radius: 12px;
   padding: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  cursor: pointer;
 }
 .brand-name-row {
   display: flex;
