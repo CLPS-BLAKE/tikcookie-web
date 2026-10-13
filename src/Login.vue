@@ -141,8 +141,10 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { sendSmsCodeAPI, loginAPI } from './api/user'
+import { beginAuthAttempt, saveAuthSession, matchesAuthSession } from './utils/identity.js'
 
 const router = useRouter()
+const loggingIn = ref(false)
 
 // 表单响应式数据
 const phone = ref('')
@@ -204,8 +206,9 @@ const handleSendCode = async () => {
   }
 }
 
-// 2. 真实登录操作（带离线自动放行保底）
+// 2. 只接受真实登录结果；稳定用户 ID 用于隔离购买记录。
 const handleLogin = async () => {
+  if (loggingIn.value) return
   if (!phone.value) {
     showToast('请输入手机号')
     return
@@ -220,31 +223,25 @@ const handleLogin = async () => {
   }
 
   showToast({ type: 'loading', message: '登录中...', forbidClick: true })
-
+  loggingIn.value = true
+  const attempt = beginAuthAttempt(localStorage)
+  let session
   try {
     // 尝试向后端发真实请求
     const data = await loginAPI(phone.value, code.value || '123456')
-    if (data && data.token) {
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('userInfo', JSON.stringify(data.user || {}))
-    }
+    if (!data?.token || !data.user?.id) throw new Error('登录响应缺少用户标识')
+    session = saveAuthSession(localStorage, data, attempt)
   } catch (err) {
-    // 👈 核心保底：如果后端没启动或报错，自动给一个模拟凭证，绝不卡住页面！
-    console.warn('后端服务未联通，已自动切换为前端演示模式')
-    localStorage.setItem('token', 'mock-test-token-2026')
-    localStorage.setItem('userInfo', JSON.stringify({
-      id: '10001',
-      phone: phone.value,
-      nickname: '无敌奶龙出击（不吃压力）'
-    }))
-  }
+    showToast('登录未成功，请重试；不会使用模拟账号下单')
+    return
+  } finally { loggingIn.value = false }
 
-  // 无论后端是否连通，直接提示成功并跳入首页！
+  // 仅真实登录并成功保存账号后进入首页。
   showToast({
     type: 'success',
     message: '登录成功！',
     onClose: () => {
-      router.push('/home')
+      if (matchesAuthSession(localStorage, session)) router.push('/home')
     }
   })
 }

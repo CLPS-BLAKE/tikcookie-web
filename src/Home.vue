@@ -30,7 +30,7 @@
       <div class="brand-header">
         <div class="brand-badge-title">限时秒杀</div>
         <div class="brand-sub-badge">
-          还剩 {{ flashList[0]?.stock || 10 }} 件 &gt;
+          还剩 {{ flashList[0]?.stock ?? '—' }} 件 &gt;
         </div>
       </div>
 
@@ -107,7 +107,7 @@
 
           <div class="ticket-right">
             <div class="ticket-name">惊喜膨胀券</div>
-            <div class="ticket-countdown">剩余 14:04:37</div>
+            <div class="ticket-countdown">优惠以实际使用规则为准</div>
           </div>
         </div>
 
@@ -129,7 +129,7 @@
 
           <div class="ticket-right">
             <div class="ticket-name">惊喜膨胀券</div>
-            <div class="ticket-countdown">剩余 14:04:37</div>
+            <div class="ticket-countdown">优惠以实际使用规则为准</div>
           </div>
         </div>
       </div>
@@ -237,6 +237,8 @@ import { useRouter } from "vue-router";
 // 1. 引入商品接口与金额格式化工具
 
 import { formatPrice } from "./utils/format";
+import { entityId } from "./utils/identity.js";
+import { showToast } from "vant";
 // 在 Home.vue 的 <script setup> 里添加：
 const homeSearchKey = ref("");
 // 👈 核心：必须声明这个 flashList 响应式空数组！
@@ -259,21 +261,18 @@ const router = useRouter();
 // 智能详情页跳转：兼容带参数和不带参数
 // 升级版：精准提取商品 ID
 const goToDetail = (item) => {
-  // 如果点的是真正的商品对象，取它真实的 id；否则才保底用 '1'
-  const targetId =
-    item && item.id && typeof item.id !== "object" ? item.id : item?.id || "1";
-
-  console.log("正在跳转商品，目标 ID 是:", targetId); // 可以在控制台看打印出的真实 ID
+  const targetId = entityId(item?.id);
+  if (!targetId) return showToast("商品信息不可用，请刷新");
 
   router.push({
     path: "/detail",
-    query: { id: targetId },
+    query: { id: targetId, type: item.type },
   });
 };
 // 👈 补上这个秒杀跳转函数：
 const goToFlashDetail = (flashItem) => {
-  const targetId = flashItem?.id || "2";
-  console.log("正在跳转秒杀商品，ID为:", targetId);
+  const targetId = entityId(flashItem?.id);
+  if (!targetId) return showToast("商品信息不可用，请刷新");
 
   router.push({
     path: "/detail",
@@ -307,48 +306,8 @@ const cleanUrl = (url) => {
   return lastHttpIndex >= 0 ? url.substring(lastHttpIndex) : url;
 };
 
-// 你的原版商品数据（作为核心保底）
-const goodsList = ref([
-  {
-    id: 1,
-    image: "https://img01.yzcdn.cn/vant/custom-empty-image.png",
-    imgTag: "{牛肉面+酱牛肉} 卤蛋/小菜2选1",
-    brand: "德元兰州纯汤牛肉面",
-    title: "【佳节】【肉蛋双飞】纯汤牛肉面+酱牛肉50g+...",
-    distance: "161m",
-    store: "广州旗舰店",
-    sales: "热销2万+",
-    price: "24.9",
-    originPrice: "33",
-    subsidy: "立减 8.1元 · 消费再返 2元",
-  },
-  {
-    id: 2,
-    image: "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg",
-    imgTag: "【设计师 洗·剪·吹】",
-    brand: "藤野造型",
-    title: "[心动美力指南美力搭子] 设计师洗剪吹套餐",
-    distance: "<100m",
-    store: "万菱汇店",
-    sales: "热销100万+",
-    price: "28.9",
-    originPrice: "88",
-    subsidy: "平台补贴1元",
-  },
-  {
-    id: 3,
-    image: "https://img01.yzcdn.cn/vant/apple-1.jpg",
-    imgTag: "爆款超大杯饮品15选1",
-    brand: "瑞幸咖啡",
-    title: "【限定联名杯】超大杯系列15选1",
-    distance: "<100m",
-    store: "石牌桥店",
-    sales: "热销100万+",
-    price: "11.5",
-    originPrice: "23",
-    subsidy: "平台补贴1.4元",
-  },
-]);
+// 不将演示商品/假 ID 当成可购买的真实商品。
+const goodsList = ref([]);
 
 // 2. 页面加载完成后触发真实接口
 onMounted(async () => {
@@ -366,45 +325,27 @@ onMounted(async () => {
   try {
     const flashData = await getFlashProductsAPI();
     if (flashData && flashData.length > 0) {
-      flashList.value = flashData.map((item) => ({
-        id: item.id,
+      flashList.value = flashData.filter(item => entityId(item.id)).map((item) => ({
+        id: entityId(item.id),
         name: item.name,
         shopName: item.shopName,
         price: formatPrice(item.price),
         // 👈 使用 cleanUrl 清洗秒杀商品图
         image: cleanUrl(item.imageUrl),
-        stock: item.remainingStock || 10,
+        stock: item.remainingStock ?? 0,
       }));
     }
   } catch (err) {
-    flashList.value = [
-      {
-        id: "2",
-        name: "早餐随心配 (咖啡等)",
-        shopName: "肯悦咖啡",
-        price: "11.00",
-        stock: 10,
-        image:
-          "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600",
-      },
-      {
-        id: "3",
-        name: "3份元气早餐两件套",
-        shopName: "肯德基",
-        price: "29.40",
-        stock: 10,
-        image:
-          "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600",
-      },
-    ];
+    flashList.value = [];
   }
 
   // C. 获取真实商品流（对应文档 5.4.3）
   try {
     const res = await getProductsAPI({ page: 1, size: 10, sort: "latest" });
     if (res && res.list && res.list.length > 0) {
-      goodsList.value = res.list.map((item) => ({
-        id: item.id,
+      goodsList.value = res.list.filter(item => entityId(item.id)).map((item) => ({
+        id: entityId(item.id),
+        type: item.type,
         // 👈 核心修改：使用 cleanUrl 自动清洗重复的 OSS 前缀！
         image: cleanUrl(item.imageUrl),
         imgTag: item.type === "FLASH" ? "限时抢购" : "特惠团购",

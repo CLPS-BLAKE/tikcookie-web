@@ -30,7 +30,9 @@ export const getMyOrdersAPI = (params = { page: 1, size: 10 }) => {
   return request.get('/orders', { params })
 }
 
-// 7. 抢购/秒杀下单接口（文档 5.6.2，对应 #16）
-export const createFlashOrderAPI = (productId) => {
-  return request.post('/orders/flash', { productId })
+// 秒杀请求必须同时携带 productId 和持久化 requestKey。
+export { createFlashOrderAPI } from './flash.js'
+
+export const cancelOrderAPI = (orderId) => {
+  return request.post(`/orders/${encodeURIComponent(orderId)}/cancel`)
 }

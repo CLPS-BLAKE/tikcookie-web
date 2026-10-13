@@ -180,17 +180,18 @@
 
       <div class="action-btn-row">
         <!-- 左按钮：原价立即购买 -->
-        <button class="buy-btn btn-white" @click="goToPay">
+        <button class="buy-btn btn-white" :class="{ 'is-limit-reached': purchaseLimitReached }" :aria-disabled="purchaseLimitReached" :disabled="submitting || !productReady" @click="goToPay()">
           <div class="btn-price">¥{{ productInfo.originPrice }}</div>
-          <div class="btn-action">立即购买</div>
+          <div class="btn-action">{{ purchaseLimitReached ? '已达购买上限' : flashIntent ? '继续本次购买' : '立即购买' }}</div>
         </button>
 
         <!-- 右按钮：特惠购买 -->
-        <button class="buy-btn btn-red" @click="goToPay">
+        <button class="buy-btn btn-red" :class="{ 'is-limit-reached': purchaseLimitReached }" :aria-disabled="purchaseLimitReached" :disabled="submitting || !productReady" @click="goToPay(Boolean(flashIntent))">
           <div class="btn-price">¥{{ productInfo.price }}</div>
-          <div class="btn-action">立即下单购买</div>
+          <div class="btn-action">{{ purchaseLimitReached ? '已达购买上限' : submitting ? '处理中...' : flashIntent ? '主动再买（新请求）' : '立即下单购买' }}</div>
         </button>
       </div>
+      <div v-if="purchaseMessage" class="purchase-message" role="status">{{ purchaseMessage }}</div>
     </footer>
   </div>
 </template>
@@ -199,11 +200,14 @@
 // 修改这行引入，加上 cleanUrl
 import { formatPrice, cleanUrl } from './utils/format'
 // 在 Detail.vue 顶部引入抢购下单接口：
-import { createOrderAPI, createFlashOrderAPI } from './api/order'
+import { createOrderAPI } from './api/order'
+import { createFlashOrderAPI, getFlashOrderResultAPI } from './api/flash'
+import { createFlashFlow } from './utils/flash-flow.js'
+import { getAuthSession, matchesAuthSession, entityId } from './utils/identity.js'
 import { addFavoriteAPI, removeFavoriteAPI, getFavoriteStatusAPI } from './api/favorite'
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { showToast } from 'vant'
+import { showToast, showConfirmDialog, showDialog } from 'vant'
 
 import { getProductDetailAPI } from './api/goods'
 
@@ -214,12 +218,38 @@ const router = useRouter()
 const route = useRoute()
 
 // 1. 获取从首页传过来的真实商品 ID
-const productId = ref(route.query.id || '1')
+const productId = ref(entityId(route.query.id))
 const isExpanded = ref(false)
+const submitting = ref(false)
+const productReady = ref(false)
+const flashIntent = ref(null)
+const purchaseMessage = ref('')
+const authSession = getAuthSession(localStorage)
+const userId = entityId(authSession?.user.id)
+let alive = true
+let flashFlow = null
+onUnmounted(() => { alive = false })
+const isActive = () => alive && matchesAuthSession(localStorage, authSession)
+const ensureFlashFlow = () => {
+  if (!isActive()) throw new Error('请先登录真实账号')
+  if (!flashFlow) flashFlow = createFlashFlow({
+    storage: localStorage, userId, productId: productId.value,
+    submit: createFlashOrderAPI, query: getFlashOrderResultAPI,
+    onChange: intent => { flashIntent.value = intent },
+  })
+  flashIntent.value = flashFlow.getIntent()
+  return flashFlow
+}
+const openQueue = intent => router.push({
+  path: '/flash-queue', query: { productId: productId.value, requestKey: intent.requestKey },
+})
+const navigationPurchaseAction = entityId(route.query.purchaseAction)
+const needsNavigationPurchase = () => route.query.newPurchase === '1' && !!navigationPurchaseAction && !flashFlow?.hasPurchaseAction(navigationPurchaseAction)
 
 // 2. 真实商品对象（有默认兜底）
 const productInfo = ref({
   id: '',
+  type: route.query.type || '',
   name: '加载中...',
   price: '24.90',
   originPrice: '33.00',
@@ -231,16 +261,39 @@ const productInfo = ref({
   contents: [],
   useRules: []
 })
+const isFlash = computed(() => productInfo.value.type === 'FLASH' || route.query.type === 'FLASH')
+const purchaseLimitReached = computed(() => isFlash.value && productInfo.value.purchaseLimitReached === true)
+const showPurchaseLimitDialog = () => showDialog({
+  message: '限购【' + productInfo.value.limitPerUser + '】件，您已达到购买上限',
+  confirmButtonText: '我知道了',
+})
 
 // 3. 页面加载：向后端查这件具体商品的真实数据
 onMounted(async () => {
-  if (!productId.value) return
+  if (!productId.value) { purchaseMessage.value = '缺少真实商品 ID，请返回首页选择商品'; return }
+  if (isFlash.value && userId) {
+    try {
+      const restored = ensureFlashFlow().getIntent()
+      // Restoring an intent must not redirect: back from /pay would immediately bounce back.
+      // Only the explicit continue button opens the saved order's queue/result flow.
+      if (restored) purchaseMessage.value = '已恢复上次购买。继续本次购买会复用原请求键；主动再买将创建新请求。'
+    } catch {
+      purchaseMessage.value = '本地购买记录无法读取，请勿重复下单'
+    }
+  }
 
   try {
     const data = await getProductDetailAPI(productId.value)
-    if (data) {
+    // A late response must not apply account A's personal quota after switching accounts.
+    if (!alive || (authSession && !isActive())) return
+    if (data && entityId(data.id) === productId.value) {
       productInfo.value = {
-        id: data.id,
+        id: entityId(data.id),
+        type: data.type,
+        limitPerUser: data.limitPerUser,
+        purchaseCount: data.purchaseCount,
+        remainingQuota: data.remainingQuota,
+        purchaseLimitReached: data.purchaseLimitReached === true,
         name: data.name,
         price: formatPrice(data.price),
         originPrice: formatPrice(data.price * 1.3),
@@ -252,6 +305,15 @@ onMounted(async () => {
   image: cleanUrl(data.imageUrl) || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600',
         contents: typeof data.contents === 'string' ? JSON.parse(data.contents) : (data.contents || []),
         useRules: typeof data.useRules === 'string' ? JSON.parse(data.useRules) : (data.useRules || [])
+      }
+      productReady.value = true
+      if (isFlash.value && userId && !purchaseLimitReached.value) {
+        const restored = ensureFlashFlow().getIntent()
+        if (restored && isActive() && !purchaseLimitReached.value) purchaseMessage.value = '已恢复上次购买。继续本次购买会复用原请求键；主动再买将创建新请求。'
+      }
+      if (purchaseLimitReached.value && isActive()) {
+        purchaseMessage.value = ''
+        void showPurchaseLimitDialog()
       }
     }
   } catch (err) {
@@ -324,43 +386,60 @@ const goToShop = () => {
 // 升级 goToPay：把当前商品的真实信息全部作为参数带给收银台
 // 改造 goToPay 方法：
 // 在 Detail.vue 的 goToPay 方法中修改为：
-const goToPay = async () => {
-  showToast({ type: 'loading', message: '正在创建订单...', forbidClick: true })
-
-  const isFlash = route.query.type === 'FLASH'
-
+const goToPay = async (newPurchase = false) => {
+  if (submitting.value) return
+  if (!isActive()) { showToast('请先登录真实账号'); router.push('/login'); return }
+  if (purchaseLimitReached.value) { await showPurchaseLimitDialog(); return }
+  // Do not create a new request from a restored intent before personal quota is loaded.
+  if (!productId.value || !productReady.value) return
+  submitting.value = true
   try {
-    let res = null
-    if (isFlash) {
-      console.log('触发秒杀抢购专用下单通道...')
-      res = await createFlashOrderAPI(productId.value)
+    if (isFlash.value) {
+      const flow = ensureFlashFlow()
+      // The first click (either button) fulfills the pending navigation purchase action.
+      // Only a later explicit buy-again click creates another action; never leave URL A unconsumed.
+      const purchaseAction = needsNavigationPurchase() ? navigationPurchaseAction : newPurchase ? crypto.randomUUID() : undefined
+      newPurchase = newPurchase || !!purchaseAction
+      if (newPurchase && flow.getIntent() && flow.getIntent().purchaseAction !== purchaseAction) {
+        try {
+          await showConfirmDialog({ title: '主动再买', message: '原请求仍可能生成订单，结果未确认不代表已安全结束。新的购买会使用新请求键，可能形成另一笔订单。确认再买？' })
+        } catch { return }
+      }
+      // The dialog may outlive this page or its authentication session.
+      if (!isActive()) return
+      const intent = await flow.submit({ newPurchase, purchaseAction })
+      if (isActive()) await openQueue(intent)
     } else {
-      res = await createOrderAPI(productId.value)
-    }
-
-    // 👈 核心：后端成功生成了真实订单号才跳转！
-    if (res && res.orderId) {
-      router.push({
-        path: '/pay',
-        query: { 
-          orderId: res.orderId, // 真实单号
-          title: productInfo.value.name,
-          shopName: productInfo.value.shopName,
-          price: productInfo.value.price,
-          image: productInfo.value.image
-        }
-      })
-    } else {
-      showToast('创建订单失败，请重试')
+      const result = await createOrderAPI(productId.value)
+      if (isActive() && entityId(result?.orderId)) await router.push({ path: '/pay', query: { orderId: entityId(result.orderId) } })
+      else if (isActive()) showToast('未取得真实订单号，请查询我的订单')
     }
   } catch (err) {
-    // 报错信息已由 request.js 自动弹出真实原因（如：不是抢购商品、已抢光等）
-    console.warn('下单失败:', err.message)
-  }
+    if (isActive() && isFlash.value) {
+      if (Number(err?.code) === 103011 || Number(err?.response?.data?.code) === 103011) {
+        productInfo.value.purchaseLimitReached = true
+        productInfo.value.remainingQuota = 0
+        purchaseMessage.value = ''
+        await showPurchaseLimitDialog()
+        return
+      }
+      purchaseMessage.value = '购买结果尚未确认。请继续本次购买（复用原请求键），不要将网络错误当成建单失败。若本地存储不可用，请先恢复存储。'
+      showToast('购买结果尚未确认，请继续本次购买')
+    }
+  } finally { submitting.value = false }
 }
 </script>
 
 <style scoped>
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+.buy-btn.is-limit-reached {
+  background: #e5e7eb;
+  color: #777;
+  border-color: #e5e7eb;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.purchase-message { padding: 4px 14px; font-size: 12px; color: #666; background: #fff; }
 .detail-container {
   background-color: #f6f7f9;
   min-height: 100vh;

@@ -11,7 +11,7 @@
     <!-- <gerenzhuzhi /> -->
     <!-- <pingjiayemian /> -->
     <!-- <shousuo /> -->
-    <router-view />
+    <router-view :key="$route.fullPath" />
   </div>
 </template>
 
