@@ -7,6 +7,7 @@ import Shousuo from '../shousuo.vue'
 import Detail from '../Detail.vue'
 import Dianpu from '../dianpu.vue'
 import OrderPay from '../OrderPay.vue'
+import FlashQueue from '../FlashQueue.vue'
 import Success from '../Success.vue'
 import Daishiyong from '../daishiyonjiemian.vue'
 import Gerenzhuzhi from '../gerenzhuzhi.vue'
@@ -22,6 +23,7 @@ const routes = [
   { path: '/detail', component: Detail },
   { path: '/shop', component: Dianpu },
   { path: '/pay', component: OrderPay },
+  { path: '/flash-queue', component: FlashQueue },
   { path: '/success', component: Success },
   { path: '/voucher', component: Daishiyong },
   { path: '/user', component: Gerenzhuzhi },

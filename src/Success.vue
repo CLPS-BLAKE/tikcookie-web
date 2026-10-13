@@ -212,10 +212,12 @@
 import { ref } from "vue";
 import { useRouter, useRoute } from 'vue-router' // 👈 必须有 useRoute
 import { showToast } from "vant";
+import { entityId } from './utils/identity.js'
 const router = useRouter();
 const route = useRoute() 
 // 👈 核心修改：动态读取从收银台传过来的真实订单 ID！
-const orderId = ref(route.query.orderId || '1113784124297331165')
+const orderId = ref(entityId(route.query.orderId))
+const productId = entityId(route.query.productId)
 
 
 // 1. 返回首页（支付成功后返回一般直接回首页，防止重复支付）
@@ -253,17 +255,20 @@ const handleSnapshot = () => showToast("查看交易快照");
 const handleUsage = () => showToast("使用情况明细");
 const handleMore = () => showToast("更多规则");
 
-const handleOrderAgain = () => showToast("再次加入购物车");
+const handleOrderAgain = () => {
+  if (!productId) return showToast('缺少商品信息，请从首页选择商品')
+  router.push({ path: '/detail', query: { id: productId, type: route.query.productType, newPurchase: '1', purchaseAction: crypto.randomUUID() } })
+}
 
 const copyOrderNumber = () => {
   navigator.clipboard.writeText(orderId.value);
   showToast("订单号已复制");
 };
 const orderInfo = ref({
-  title: route.query.title || '【实测联调】纯汤牛肉面豪华套餐',
-  shopName: route.query.shopName || '德元兰州纯汤牛肉面(天河旗舰店)',
-  price: route.query.price || '24.90',
-  image: route.query.image || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
+  title: route.query.title || '订单商品',
+  shopName: route.query.shopName || '',
+  price: route.query.price || '—',
+  image: route.query.image || ''
 })
 
 // 点击去使用，把真实单号继续往后传给待使用页面

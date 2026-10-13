@@ -309,7 +309,7 @@
 // 修改为同时引入 formatPrice 和 cleanUrl：
 import { formatPrice, cleanUrl } from "./utils/format";
 import { getFavoriteListAPI } from "./api/favorite";
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { showToast } from "vant";
 
@@ -317,8 +317,13 @@ import { getMyOrdersAPI } from "./api/order";
 // 引入修改资料接口和文件上传接口
 import { getUserInfoAPI, updateUserInfoAPI } from "./api/user";
 import { uploadImageAPI } from "./api/file";
+import { getAuthSession, matchesAuthSession, updateAuthProfile } from "./utils/identity.js";
 const router = useRouter();
 const route = useRoute();
+const profileSession = getAuthSession(localStorage);
+let alive = true;
+const isActive = () => alive && matchesAuthSession(localStorage, profileSession);
+onUnmounted(() => { alive = false; });
 
 // 1. 用户信息
 const userInfo = ref({
@@ -355,19 +360,16 @@ const loading = ref(false);
 
 // 页面加载时的处理
 onMounted(async () => {
-  // A. 读取用户信息缓存
-  const localUser = localStorage.getItem("userInfo");
+  // A. 从成对认证记录读取资料，不再信任旧的独立 userInfo key。
+  const localUser = isActive() ? getAuthSession(localStorage)?.user : null;
   if (localUser) {
-    try {
-      const parsed = JSON.parse(localUser);
-      if (parsed.nickname) userInfo.value.nickname = parsed.nickname;
-      if (parsed.avatarUrl) userInfo.value.avatarUrl = parsed.avatarUrl;
-    } catch (e) {}
+    if (localUser.nickname) userInfo.value.nickname = localUser.nickname;
+    if (localUser.avatarUrl) userInfo.value.avatarUrl = localUser.avatarUrl;
   }
 
   try {
     const data = await getUserInfoAPI();
-    if (data && data.nickname) {
+    if (isActive() && data && data.nickname) {
       userInfo.value.nickname = data.nickname;
       if (data.avatarUrl) userInfo.value.avatarUrl = data.avatarUrl;
     }
@@ -582,6 +584,7 @@ const triggerChooseAvatar = () => {
 
 // 选中本地图片后上传并更新
 const onAvatarSelected = async (event) => {
+  if (!isActive()) return;
   const file = event.target.files[0];
   if (!file) return;
 
@@ -594,16 +597,18 @@ const onAvatarSelected = async (event) => {
     const newAvatarUrl = uploadRes?.url || URL.createObjectURL(file);
 
     // B. 真实调用更新资料接口（文档 5.1.5）更新头像
+    if (!isActive()) return;
     await updateUserInfoAPI({ avatar: fileId });
 
     // C. 页面与本地缓存同步更新
-    userInfo.value.avatarUrl = cleanUrl(newAvatarUrl);
-    const localUser = JSON.parse(localStorage.getItem("userInfo") || "{}");
-    localUser.avatarUrl = userInfo.value.avatarUrl;
-    localStorage.setItem("userInfo", JSON.stringify(localUser));
+    if (!isActive()) return;
+    const avatarUrl = cleanUrl(newAvatarUrl);
+    updateAuthProfile(localStorage, { avatarUrl }, profileSession);
+    userInfo.value.avatarUrl = avatarUrl;
 
     showToast({ type: "success", message: "头像更新成功！" });
   } catch (err) {
+    if (!isActive()) return;
     console.warn("后端更新头像异常，采用本地模拟更新");
     // 优雅保底：本地即使报错也允许回显预览
     const mockUrl = URL.createObjectURL(file);
@@ -623,6 +628,7 @@ const openEditNameDialog = () => {
 };
 
 const confirmUpdateNickname = async () => {
+  if (!isActive()) return;
   const targetName = newNicknameInput.value.trim();
   if (!targetName) {
     showToast("昵称不能为空");
@@ -640,13 +646,13 @@ const confirmUpdateNickname = async () => {
     await updateUserInfoAPI({ nickname: targetName });
 
     // 页面与本地缓存同步更新
+    if (!isActive()) return;
+    updateAuthProfile(localStorage, { nickname: targetName }, profileSession);
     userInfo.value.nickname = targetName;
-    const localUser = JSON.parse(localStorage.getItem("userInfo") || "{}");
-    localUser.nickname = targetName;
-    localStorage.setItem("userInfo", JSON.stringify(localUser));
 
     showToast({ type: "success", message: "昵称修改成功！" });
   } catch (err) {
+    if (!isActive()) return;
     console.warn("后端更新昵称异常，采用保底更新");
     userInfo.value.nickname = targetName;
     showToast({ type: "success", message: "昵称修改成功！" });

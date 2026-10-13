@@ -8,11 +8,11 @@
 
       <div class="center-status">
         <div class="status-title">
-          <span>待支付，剩余 </span>
-          <!-- 动态红字倒计时 -->
-          <span class="countdown-text">{{ formatTime(remainingSeconds) }}</span>
+          <span>{{ statusTitle }}</span>
+          <span v-if="orderDetail?.status === 'UNPAID' && remainingSeconds !== null" class="countdown-text">{{ formatTime(remainingSeconds) }}</span>
         </div>
-        <div class="status-sub">超时未支付，订单将自动取消</div>
+        <div class="status-sub">{{ statusMessage }}</div>
+        <span class="copy-btn" @click="loadOrder">刷新订单状态</span>
       </div>
 
       <div class="service-btn" @click="handleService">
@@ -30,7 +30,7 @@
           <div class="goods-title-line">
             <h3 class="goods-title">{{ orderInfo.title }}</h3>
             <div class="origin-qty-col">
-              <span class="origin-price-tag">¥21</span>
+              <span class="origin-price-tag">¥{{ orderInfo.price }}</span>
               <span class="qty-tag">x1</span>
             </div>
           </div>
@@ -52,16 +52,16 @@
       <!-- 下半部：价格优惠清单 -->
       <div class="calc-list">
         <div class="calc-item">
-          <span class="label">参考价</span>
-          <span class="val">¥21</span>
+          <span class="label">订单金额</span>
+          <span class="val">¥{{ orderInfo.price }}</span>
         </div>
         <div class="calc-item">
-          <span class="label">团购优惠</span>
-          <span class="val discount">-¥5.1</span>
+          <span class="label">应付金额</span>
+          <span class="val discount">¥{{ orderInfo.price }}</span>
         </div>
         <div class="calc-item">
-          <span class="label">专享优惠</span>
-          <span class="val discount">-¥1.7</span>
+          <span class="label">优惠说明</span>
+          <span class="val discount">以订单实际金额为准</span>
         </div>
       </div>
     </section>
@@ -170,12 +170,12 @@
 
       <!-- 右侧：取消订单 + 去支付 -->
       <div class="btn-group-right">
-        <div class="cancel-order-btn" @click="handleCancel">
+        <button class="cancel-order-btn" :disabled="!canCancel" @click="handleCancel">
           <van-icon name="notes-o" size="18" />
           <span>取消订单</span>
-        </div>
-        <button class="pay-now-btn" @click="handlePay">
-          去支付
+        </button>
+        <button class="pay-now-btn" :disabled="!canPay || acting" @click="handlePay">
+          {{ acting ? '处理中...' : '去支付' }}
         </button>
       </div>
     </footer>
@@ -183,111 +183,138 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router' // 👈 引入路由工具
-import { showToast } from 'vant'
-// 1. 引入订单接口（查询详情与模拟支付）
-import { getOrderDetailAPI, payOrderAPI } from './api/order'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { showToast, showConfirmDialog } from 'vant'
+import { getOrderDetailAPI, payOrderAPI, cancelOrderAPI } from './api/order'
+import { createPaymentFlow } from './utils/payment-flow.js'
+import { getAuthSession, matchesAuthSession, entityId } from './utils/identity.js'
+import { deadlineSeconds } from './utils/server-time.js'
+import { formatPrice, cleanUrl } from './utils/format'
+
 const router = useRouter()
-const route = useRoute() // 👈 读取路由参数
-// 动态读取买的具体商品信息
-const orderInfo = ref({
-  title: route.query.title || '【实测联调】纯汤牛肉面豪华套餐',
-  shopName: route.query.shopName || '德元兰州纯汤牛肉面(天河旗舰店)',
-  price: route.query.price || '24.90',
-  image: route.query.image || 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600'
+const route = useRoute()
+const orderId = entityId(route.query.orderId)
+const authSession = getAuthSession(localStorage)
+const orderDetail = ref(null)
+const loading = ref(true)
+const acting = ref(false)
+const errorMessage = ref('')
+const now = ref(Date.now())
+let alive = true, timer = null, flow = null
+let refreshing = false
+const isActive = () => alive && matchesAuthSession(localStorage, authSession)
+const orderInfo = computed(() => ({
+  title: orderDetail.value?.productName || '等待真实订单详情',
+  shopName: orderDetail.value?.shopName || '',
+  price: orderDetail.value?.amount == null ? '—' : formatPrice(orderDetail.value.amount),
+  image: cleanUrl(orderDetail.value?.productImageUrl || ''),
+}))
+const remainingSeconds = computed(() => deadlineSeconds(orderDetail.value?.payDeadline, now.value))
+const canPay = computed(() => {
+  now.value // Recompute eligibility from absolute time rather than decrementing a fake duration.
+  orderDetail.value
+  return !loading.value && !acting.value && !!flow?.canPay()
 })
+const canCancel = computed(() => {
+  now.value
+  return !loading.value && !acting.value && isActive() && orderDetail.value?.status === 'UNPAID'
+})
+const statusTitle = computed(() => {
+  if (loading.value) return '正在查询订单'
+  if (!orderDetail.value) return '订单详情未确认'
+  if (orderDetail.value.status !== 'UNPAID') return ({ CANCELLED: '订单已取消', UNUSED: '订单已支付', USED: '订单已使用', REFUNDED: '订单已退款' })[orderDetail.value.status] || '订单不可支付'
+  if (remainingSeconds.value === null) return '支付截止时间未确认'
+  return remainingSeconds.value === 0 ? '支付期限已到 ' : '待支付，剩余 '
+})
+const statusMessage = computed(() => {
+  if (errorMessage.value) return errorMessage.value
+  if (!isActive()) return '请登录原订单所属账号'
+  if (orderDetail.value?.status !== 'UNPAID') return '以服务端查询到的订单状态为准'
+  if (remainingSeconds.value === null) return '缺少有效支付截止时间，请刷新订单状态'
+  if (remainingSeconds.value === 0) return '请刷新订单状态确认是否已取消，当前不可支付'
+  return `支付截止：${orderDetail.value.payDeadline}（上海时间）`
+})
+const formatTime = seconds => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`
 
-
-// 订单编号：优先使用上个页面传过来的真实单号，没有则使用默认保底单号
-const orderId = ref(route.query.orderId || '1113784812650611165')
-
-// 倒计时秒数（原图 29分28秒 = 1768秒）
-const remainingSeconds = ref(1768)
-let timer = null
-
-// 格式化时间为 mm:ss
-const formatTime = (secs) => {
-  const m = Math.floor(secs / 60).toString().padStart(2, '0')
-  const s = (secs % 60).toString().padStart(2, '0')
-  return `${m}:${s}`
+const loadOrder = async () => {
+  if (refreshing || acting.value || !flow || !isActive()) return
+  refreshing = true
+  loading.value = true
+  errorMessage.value = ''
+  try { await flow.refresh(); if (isActive()) errorMessage.value = '' }
+  catch { if (isActive()) errorMessage.value = '无法确认订单详情，请刷新后再操作' }
+  finally {
+    refreshing = false
+    if (alive) { loading.value = false; now.value = Date.now() }
+  }
 }
 
 onMounted(async () => {
-  // 启动真实倒计时，每秒减 1
-  timer = setInterval(() => {
-    if (remainingSeconds.value > 0) {
-      remainingSeconds.value--
-    } else {
-      clearInterval(timer)
-    }
-  }, 1000)
-
-  // 尝试向后端拉取订单详情（对应文档 5.6.7）
-  try {
-    const data = await getOrderDetailAPI(orderId.value)
-    if (data) {
-      console.log('获取到后端订单详情:', data)
-    }
-  } catch (err) {
-    // 骨架期静默处理，页面继续使用原有的预设金额和菜品展示
+  if (!orderId || !isActive()) {
+    loading.value = false
+    errorMessage.value = !orderId ? '缺少真实订单号，请从我的订单进入' : '请登录真实账号后再查看订单'
+    return
   }
+  flow = createPaymentFlow({
+    orderId, fetchOrder: getOrderDetailAPI, payOrder: payOrderAPI, cancelOrder: cancelOrderAPI,
+    isActive,
+    onChange: detail => { if (alive) orderDetail.value = detail },
+    onPaid: detail => {
+      if (!isActive()) return
+      showToast('支付成功')
+      router.replace({ path: '/success', query: {
+        orderId, productId: detail.productId, productType: detail.productType,
+        title: detail.productName, shopName: detail.shopName,
+        price: formatPrice(detail.amount), image: cleanUrl(detail.productImageUrl || ''),
+      } })
+    },
+  })
+  timer = setInterval(() => { now.value = Date.now() }, 1000)
+  await loadOrder()
 })
+onUnmounted(() => { alive = false; if (timer !== null) clearInterval(timer) })
 
-onUnmounted(() => {
-  if (timer) clearInterval(timer)
-})
-
-// 返回上一页
-const handleBack = () => {
-  router.back()
-}
-
-// 核心升级：点击去支付（真实请求后端支付接口）
+const handleBack = () => router.back()
 const handlePay = async () => {
-  showToast({ type: 'loading', message: '正在调起支付...', forbidClick: true })
-  try {
-    await payOrderAPI(orderId.value)
-  } catch (err) {}
-
-  showToast({
-    type: 'success',
-    message: '支付成功！',
-    onClose: () => {
-      // 👈 把这批数据继续传给成功页
-      router.push({
-        path: '/success',
-        query: { 
-          orderId: orderId.value,
-          title: orderInfo.value.title,
-          shopName: orderInfo.value.shopName,
-          price: orderInfo.value.price,
-          image: orderInfo.value.image
-        }
-      })
+  if (!canPay.value || acting.value) return
+  acting.value = true
+  errorMessage.value = ''
+  try { await flow.pay() }
+  catch {
+    if (isActive()) {
+      errorMessage.value = '支付结果未确认，请刷新订单状态后再操作'
+      showToast('支付未确认，不会跳转成功页')
     }
-  })
+  } finally { acting.value = false; now.value = Date.now() }
 }
-
-// 点击复制订单号（保持你的原版代码）
-const copyOrderNumber = () => {
-  navigator.clipboard.writeText(orderId.value).then(() => {
-    showToast('订单号已复制到剪贴板')
-  }).catch(() => {
-    showToast('复制成功')
-  })
+const handleCancel = async () => {
+  if (!canCancel.value || acting.value) return
+  acting.value = true
+  try {
+    try { await showConfirmDialog({ title: '取消订单', message: '确认取消当前待支付订单？' }) }
+    catch { return }
+    await flow.cancel()
+    if (isActive()) { errorMessage.value = ''; showToast('订单已取消') }
+  } catch {
+    if (isActive()) { errorMessage.value = '取消结果未确认，请刷新订单状态'; showToast('取消未确认，请刷新订单状态') }
+  } finally { acting.value = false }
 }
-
-// 门店操作与交互方法（保持你的原版代码）
-const handleAllStores = () => showToast('查看全部123家门店')
+const copyOrderNumber = async () => {
+  if (!orderId) return
+  try { await navigator.clipboard.writeText(orderId); showToast('订单号已复制到剪贴板') }
+  catch { showToast('复制失败，请手动复制订单号') }
+}
+const handleAllStores = () => showToast('查看适用门店')
 const handleNav = () => showToast('正在打开地图导航...')
 const handleCall = () => showToast('拨打门店电话')
 const handleOrderMore = () => showToast('查看更多订单规则')
 const handleService = () => showToast('联系客服')
-const handleCancel = () => showToast('取消订单申请')
 </script>
 
 <style scoped>
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+.cancel-order-btn { border: 0; background: transparent; }
 .order-pay-container {
   background-color: #f7f8fa;
   min-height: 100vh;
