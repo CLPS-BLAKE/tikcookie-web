@@ -1,69 +1,83 @@
 # TikCookie Web
 
-TikCookie 的前端仓库，面向 Java 教学成果展示项目，负责浏览器端页面、交互以及与后端 API 的集成。
+TikCookie 是一个团购券教学项目。本仓库负责浏览器页面、交互和后端 API 接入。支付、退款和用券都是教学模拟，不涉及真实资金或商家履约。
 
-> 2026-10-13 抢购说明：当前工作区抢购路径已实现，请先阅读 [抢购用户使用指南](docs/FLASH_SALE_USER_GUIDE.md)。下方旧日期状态保留为历史，不表示当前实现仍未完成，也不证明新版本已发布。
+技术栈为 Vue 3、Vite、Vant、Vue Router 和 Axios。以下说明以 main 的 `bd1d945` 代码为基线。已有请求代码不等于已通过联调、验收或上线。
 
-## 项目定位
+## 页面与路由
 
-- 前后端分离架构
-- 实际前端技术栈：Vue 3、Vite、Vant、Vue Router、Axios
-- 由 Nginx 提供前端静态资源，并将 `/api` 请求转发到后端
-- 对应后端仓库：[tikcookie-api](https://github.com/CLPS-BLAKE/tikcookie-api)
+使用 Hash history。例如首页地址为 `http://localhost:5173/#/home`。根路径 `/` 重定向到 `/login`。共有 12 个页面路由。
 
-> 2026-10-08 更新：远端 main 已有工程、10 个页面路由及登录请求，但多数业务仍为模拟。ECS 为 2 核 4 GB，四种中间件同驻 node1；后端已部署阿里云，Nginx/前端待部署，后端具体实例及是否同驻 node1 待记录。详见 [实现进度](docs/PROGRESS.md)。
-> 同日部署补充：负责人确认 Logstash 已通过 Compose 部署并同步 MySQL → ES，店铺 5/5、商品 30/30，两个索引 mapping 符合配置。Java 搜索 API 和 RabbitMQ 消费同步仍待完成；见 [Logstash 部署记录](docs/LOGSTASH_SYNC.md)。
+| 路由 | 页面 | 主要参数 |
+| --- | --- | --- |
+| `/login` | 手机号验证码登录 | 无 |
+| `/home` | 分类、商品流、抢购入口 | 无 |
+| `/search` | 商品搜索、历史和推荐 | `keyword` |
+| `/detail` | 商品详情、收藏和购买 | `id`，可带 `type=FLASH` |
+| `/shop` | 店铺详情、店内商品 | `shopId` |
+| `/pay` | 真实订单查询、模拟支付、取消 | `orderId` |
+| `/flash-queue` | 抢购请求进度、建单结果 | `productId`、`requestKey` |
+| `/success` | 支付结果展示 | 从支付流程进入 |
+| `/voucher` | 券码、去使用、退款入口 | `orderId` |
+| `/user` | 个人资料、订单和收藏入口 | 可带 `tab` |
+| `/comment` | 评价和配图 | 从订单入口进入 |
+| `/favorites` | 商品和店铺收藏 | 无 |
+
+请从真实商品和订单入口进入详情页。不要把直接访问页面时的默认价格、券码或占位内容当作业务数据。
+
+## 当前接入范围
+
+- 登录页调用验证码和登录接口。失败时不会使用模拟账号下单。
+- 首页调用分类、商品流和抢购列表。商品详情和店铺页调用详情及商品接口。
+- 搜索页调用商品搜索。推荐词池是静态内容，不是实时推荐；有店铺搜索封装不代表页面已接入店铺搜索。
+- 普通购买调用下单接口。抢购会保存请求键，再提交、查询建单结果。
+- 支付页查询真实订单，调用模拟支付和取消接口。结果不明时需要刷新订单状态。
+- 个人中心、收藏、券页和评价页已有 API 调用，但仍有本地缓存、默认内容或失败兜底。
+
+后端接口是否可用，需要实际联调。HTTP 501、页面可跳转或“操作成功”提示都不能单独作为验收证据。当前没有独立 mock 服务或无后端的完整购买模式。具体边界见[开发说明](docs/DEVELOPMENT.md)和[测试说明](docs/TESTING.md)。
+
+## 本地启动与构建
+
+Node.js 要求：`^22.18.0 || >=24.12.0`。使用 npm 和仓库内的 `package-lock.json`。
+
+本地业务联调前，必须先启动后端依赖的中间件，再启动后端应用。前端只调用后端，不直连 MySQL、Redis、RabbitMQ 或 Elasticsearch。
+
+在本仓库目录执行：
+
+```bash
+npm ci
+npm run dev
+```
+
+开发服务配置端口为 `5173`，以终端实际输出为准。`/api` 由 Vite 代理到 `http://127.0.0.1:8080`，路径不改写。请求前缀为 `/api/v1`。
+
+```bash
+npm run build
+npm run preview
+```
+
+构建输出为 `dist/`。preview 用于本地查看构建结果，不是生产部署或完整业务验收。当前 `package.json` 只有 `dev`、`build`、`preview`，没有 `test` 或 `lint` 脚本。
+
+## 部署与图片边界
+
+部署采用 Linux：Compose 管理 MySQL、Redis、RabbitMQ、Elasticsearch、Logstash 五个服务；后端以 JAR 运行；Nginx 托管前端 `dist/` 并转发 `/api`。Vite 开发代理不替代生产 Nginx 配置。部署操作和配置只在后端文档维护。
+
+OSS 由后端处理。前端将图片上传到后端，使用返回的 `fileId` 关联业务，使用返回 URL 展示图片。浏览器可按 URL 读取图片，但不直接向 OSS 上传，也不保存 AccessKey、SecretKey 或其他存储凭据。
 
 ## 文档入口
 
-- [抢购用户使用指南（操作流程、限购与异常处理）](docs/FLASH_SALE_USER_GUIDE.md)
-- [贡献指南](CONTRIBUTING.md)
-- [项目与架构说明](docs/PROJECT_GUIDE.md)
-- [实现进度与优先待办（同步自后端）](docs/PROGRESS.md)
-- [开发、评审与合并流程](docs/WORKFLOW.md)
-- [前后端接口协作约定](docs/API_CONTRACT.md)
-- [接口文档（同步自后端仓库）](docs/接口文档.md)
-- [需求文档（同步自后端仓库）](docs/需求文档.md)
-- [中间件配置（同步自后端仓库）](docs/中间件配置.md)
-- [测试与验收规范](docs/TESTING.md)
-- [团队职责登记](docs/TEAM.md)
-- [安全说明](SECURITY.md)
+前端主线：
 
-> `docs/接口文档.md`、`docs/需求文档.md`、`docs/中间件配置.md`、`docs/PROGRESS.md` 同步自后端仓库 [tikcookie-api](https://github.com/CLPS-BLAKE/tikcookie-api)，保持内容一致，不在前端单独修改；后端更新后重新同步并回填对应文档提交号。
->
-> 同步记录：
-> - 2026-10-13：新增共享抢购用户指南，与后端同名文档保持一致；技术设计以 tikcookie-api 的 docs/FLASH_SALE.md 为准。本次是本地文档补充，提交号在提交/合并后回填，不表示线上已发布。
-> - `833f759`（2026-09-28）：首次同步，三份文档与后端一致。
-> - 待回填提交号：数据库由 MongoDB 8.0 换成 MySQL 8.0 + MyBatis-Plus，对应后端文档的 v3 版（2026-09-29）。本次 `需求文档.md` 和 `中间件配置.md` 内容有更新，`接口文档.md` 未变。
-> - 2026-10-08：同步本地后端修订的四份共享文档，更新实现状态、用户“去使用”、node1 同机部署和待办；代码核对基线为后端 `af739da` / 前端 `dfe3b54`。本次文档尚未提交，合并后回填文档 SHA，不把代码基线当作新文档提交号。
+- [开发说明](docs/DEVELOPMENT.md)：代码结构、接口约定、抢购恢复和模拟限制。
+- [测试说明](docs/TESTING.md)：实际命令、人工回归和未验证项记录。
 
-## 本地开发与构建
+共享文档只在[后端仓库](https://github.com/CLPS-BLAKE/tikcookie-api)维护，不在前端保存同步副本：
 
-以下命令在包含前端源码的 main 或任务分支中执行；若当前检出较早的文档同步分支且没有 package.json，需先按协作流程合入/切换源码版本，保留已有本地修改，不要误认为远端尚无工程。
+- [项目与架构](https://github.com/CLPS-BLAKE/tikcookie-api/blob/main/docs/PROJECT_GUIDE.md)
+- [需求文档](https://github.com/CLPS-BLAKE/tikcookie-api/blob/main/docs/需求文档.md)
+- [部署说明](https://github.com/CLPS-BLAKE/tikcookie-api/blob/main/docs/DEPLOYMENT.md)
+- [配置说明](https://github.com/CLPS-BLAKE/tikcookie-api/blob/main/docs/CONFIGURATION.md)
+- [接口文档](https://github.com/CLPS-BLAKE/tikcookie-api/blob/main/docs/接口文档.md)
+- [后端测试说明](https://github.com/CLPS-BLAKE/tikcookie-api/blob/main/docs/TESTING.md)
 
-- 包管理器：npm，依赖锁文件为 package-lock.json；安装使用 `npm ci`。
-- Node.js：package.json 的 engines 为 `^22.18.0 || >=24.12.0`。
-- `npm run dev`：开发服务，默认 5173；Vite 将 `/api` 代理到 `http://127.0.0.1:8080`，它指向本地后端，不是 node1 中间件。
-- `npm run build`：生成 dist；`npm run preview`：预览构建物。
-- 当前 package.json 没有 test/lint 脚本；本地已有 tests 目录，可运行 node --test tests/*.test.js 验证购买、身份、额度及支付等流程，npm run build 检查构建。实际执行结果应另行记录，不能据文档声明测试通过。
-
-已有页面：登录、首页、搜索、商品详情、店铺、支付、交易成功、券详情、个人中心/订单、评价。前端只调用后端 API，不直连 node1 的中间件；图片展示可直接使用后端返回的 OSS URL。
-
-## 基本协作规则
-
-1. 禁止直接向 `main` 推送业务代码。
-2. 从最新 `main` 创建短期任务分支。
-3. 所有变更通过 Pull Request 合并。
-4. 每个 PR 至少需要 1 名合格评审者批准。
-5. 合并前必须通过必需检查并解决全部评审讨论。
-6. 统一使用 Squash merge，合并后删除任务分支。
-7. 密码、Token、云密钥及真实环境配置不得进入仓库。
-
-## 当前状态
-
-2026-10-13 当前工作区已实现首页真实抢购列表、商品个人额度、购买进度及本人结果查询、原请求重试/主动再买、真实订单模拟支付与取消；使用方式见 [用户指南](docs/FLASH_SALE_USER_GUIDE.md)。这些本地变更不代表已合并或已部署。券页核销/退款仍有模拟成功兜底等相邻能力边界，不能仅凭页面提示验收。下方 2026-10-08 main 状态保留为历史基线，不用于否定当前已实现的抢购路径。
-
-以 2026-10-08 核对的远端 main `dfe3b54` 为基线：页面和路由原型已有，Axios 支持 `/api/v1`、Bearer token 和错误提示；登录已尝试真实接口，但失败后会写假 token 并仍提示成功，必须修正，不能算登录验收通过。
-
-首页/店铺/商品主要硬编码，跳转不带真实 ID；搜索、交易、订单列表、资料/头像和收藏待真实接入。先完成购买闭环，再补搜索/收藏与测试。后端已在阿里云部署，但 Nginx/前端部署和全链路验收仍待完成；评价、配送、购物车等原型不在本期范围。
-
+协作入口：[贡献指南](CONTRIBUTING.md)、[协作流程](docs/WORKFLOW.md)、[团队职责](docs/TEAM.md)、[安全说明](SECURITY.md)。Issue 和 PR 请使用仓库模板。
